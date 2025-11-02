@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskFlow MVP</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f9f9f9;
+            padding: 30px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        input, textarea, button {
+            width: 100%;
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .task {
+            border-bottom: 1px solid #eee;
+            padding: 10px 0;
+        }
+        .task:last-child {
+            border-bottom: none;
+        }
+        .status {
+            color: gray;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <h1>TaskFlow — Task Manager</h1>
+    <div class="container">
+        <h3>Add New Task</h3>
+        <form id="taskForm">
+            <input type="text" id="title" placeholder="Task title" required>
+            <textarea id="description" placeholder="Task description (optional)"></textarea>
+            <button type="submit">Add Task</button>
+        </form>
+
+        <hr>
+        <h3>All Tasks</h3>
+        <div id="taskList"></div>
+    </div>
+
+    <script>
+        const form = document.getElementById("taskForm");
+        const taskList = document.getElementById("taskList");
+
+        async function loadTasks() {
+            const res = await fetch("/tasks");
+            const tasks = await res.json();
+
+            taskList.innerHTML = ""; 
+            tasks.forEach(task => {
+                const div = document.createElement("div");
+                div.className = "task";
+                div.innerHTML = `
+                    <strong>${task.title}</strong><br>
+                    <span>${task.description || "No description"}</span><br>
+                    <span class="status">Status: ${task.status}</span><br>
+                    <small>Created: ${new Date(task.created_at).toLocaleString()}</small>
+                `;
+                taskList.appendChild(div);
+            });
+        }
+
+      
+        form.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const title = document.getElementById("title").value;
+            const description = document.getElementById("description").value;
+
+            const res = await fetch("/tasks", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ title, description })
+            });
+
+            if (res.ok) {
+                form.reset();
+                loadTasks(); 
+            } else {
+                alert("Error adding task");
+            }
+        });
+
+        
+        loadTasks();
+    </script>
+</body>
+</html>
