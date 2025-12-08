@@ -1,0 +1,29 @@
+
+{% extends "base.html" %}
+{% block content %}
+
+<h2 class="section-title">Add Task</h2>
+
+<div id="message-box"></div>
+
+<form class="form-box" onsubmit="saveTask(event)">
+    <label for="title">Title *</label>
+    <input type="text" id="title" class="input-box" placeholder="Enter task title">
+
+    <label for="description">Description</label>
+    <textarea id="description" class="input-box" rows="3" placeholder="Short description"></textarea>
+
+    <label for="deadline">Deadline *</label>
+    <input type="date" id="deadline" class="input-box">
+
+    <label for="priority">Priority</label>
+    <select id="priority" class="input-box">
+        <option>High</option>
+        <option selected>Medium</option>
+        <option>Low</option>
+    </select>
+
+    <button class="btn btn-blue full-width" type="submit">Save Task</button>
+</form>
+
+{% endblock %}

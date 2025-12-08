@@ -1,0 +1,30 @@
+
+{% extends "base.html" %}
+{% block content %}
+
+<h2 class="section-title">Task Table</h2>
+
+<div class="table-header">
+    <input id="table-search" placeholder="Search tasks..." class="search-box small">
+    <button id="open-add" class="btn btn-blue">+ Add Task</button>
+</div>
+
+<div id="message-box"></div>
+
+<table class="task-table">
+    <thead>
+        <tr>
+            <th>Task Name</th>
+            <th>Due Date</th>
+            <th>Priority</th>
+            <th>Status</th>
+            <th class="col-small">Edit</th>
+            <th class="col-small">Delete</th>
+        </tr>
+    </thead>
+    <tbody id="task-table-body">
+       
+    </tbody>
+</table>
+
+{% endblock %}

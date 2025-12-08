@@ -1,0 +1,29 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskFlow</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div class="sidebar">
+    <h2 class="logo">TaskFlow</h2>
+
+    <a href="{{ url_for('dashboard') }}" class="side-link">Dashboard</a>
+    <a href="{{ url_for('tasks_page') }}" class="side-link">My Tasks</a>
+    <a href="{{ url_for('task_manager') }}" class="side-link">Task Manager</a>
+    <a href="{{ url_for('table_page') }}" class="side-link">Task Table</a>
+    <a href="#" class="side-link disabled">Reports</a>
+    <a href="#" class="side-link disabled">Settings</a>
+</div>
+
+<div class="content">
+    {% block content %}{% endblock %}
+</div>
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

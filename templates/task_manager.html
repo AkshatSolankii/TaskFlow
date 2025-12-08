@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Task Manager</h2>
+
+<div class="task-manager-header">
+    <input id="task-search" placeholder="Filter tasks..." class="search-box">
+</div>
+
+<div id="message-box"></div>
+
+<div id="manager-list" class="task-manager-list"></div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        loadTasks();
+        setTimeout(renderManager, 300);
+    });
+    
+</script>
+
+{% endblock %}
