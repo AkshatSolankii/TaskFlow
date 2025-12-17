@@ -13,6 +13,9 @@ class Task(db.Model):
     priority = db.Column(db.String(20), default="Medium")
     status = db.Column(db.String(20), default="pending")  # "pending" or "completed"
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    category_id = db.Column(db.Integer, db.ForeignKey("categories.id"), nullable=True)
+    category = db.relationship("Category", backref="tasks")
+
 
     def to_dict(self):
         return {

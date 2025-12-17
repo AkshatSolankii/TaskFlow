@@ -377,3 +377,35 @@ textarea:focus {
     cursor: pointer;
     font-size: 18px;
 }
+
+
+
+.category-box {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+    max-width: 420px;
+}
+
+.category-box .input-box {
+    flex: 1;
+}
+
+.category-box .btn {
+    white-space: nowrap;
+}
+
+/* Align category filter with search */
+.task-manager-header {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.dropdown {
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    font-size: 14px;
+}

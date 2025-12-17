@@ -1,8 +1,10 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for
-from models import db, Task
+from flask import Flask, request, jsonify, render_template
+from flask_sqlalchemy import SQLAlchemy
+from datetime import datetime
 import os
 
 app = Flask(__name__)
+
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 DB_PATH = os.path.join(BASE_DIR, "tasks.db")
@@ -10,7 +12,30 @@ DB_PATH = os.path.join(BASE_DIR, "tasks.db")
 app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{DB_PATH}"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-db.init_app(app)
+db = SQLAlchemy(app)
+
+
+class Category(db.Model):
+    __tablename__ = "categories"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), unique=True, nullable=False)
+
+
+class Task(db.Model):
+    __tablename__ = "tasks"
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text)
+    deadline = db.Column(db.String(20))
+    priority = db.Column(db.String(20), default="Medium")
+    status = db.Column(db.String(20), default="pending")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    category_id = db.Column(db.Integer, db.ForeignKey("categories.id"), nullable=True)
+    category = db.relationship("Category", backref="tasks")
+
 
 with app.app_context():
     db.create_all()
@@ -18,106 +43,134 @@ with app.app_context():
 
 @app.route("/")
 def dashboard():
-    """Main dashboard – JS will load tasks and render cards."""
     return render_template("dashboard.html")
 
-@app.route("/table")
-def table_page():
-    """Table view page."""
-    return render_template("all_tasks_table.html")
-
-@app.route("/task-manager")
-def task_manager():
-    """Task manager list view."""
-    return render_template("task_manager.html")
-
-@app.route("/tasks")
-def tasks_page():
-    """
-    Simple server-side 'My Tasks' page (uses my_tasks.html).
-    Sidebar link 'My Tasks' will go here.
-    """
-    tasks = Task.query.order_by(Task.deadline.asc().nulls_last()).all()
-    return render_template("my_tasks.html", tasks=tasks)
 
 @app.route("/add")
 def add_page():
-    """Add task form."""
     return render_template("add_task.html")
+
 
 @app.route("/edit/<int:task_id>")
 def edit_page(task_id):
-    """Edit task form."""
     task = Task.query.get_or_404(task_id)
     return render_template("edit_task.html", task=task)
 
 
-@app.route("/api/tasks", methods=["GET"])
-def api_get_tasks():
-    """Return all tasks as JSON for dashboard/table/manager."""
+@app.route("/task-manager")
+def task_manager():
+    return render_template("task_manager.html")
+
+
+@app.route("/table")
+def table_page():
+    return render_template("all_tasks_table.html")
+
+
+@app.route("/tasks")
+def my_tasks():
     tasks = Task.query.order_by(Task.created_at.desc()).all()
-    return jsonify([t.to_dict() for t in tasks]), 200
+    return render_template("my_tasks.html", tasks=tasks)
+
+@app.route("/api/categories", methods=["POST"])
+def create_category():
+    data = request.get_json()
+    name = data.get("name", "").strip()
+
+    if not name:
+        return jsonify({"error": "Category name is required"}), 400
+
+    if Category.query.filter_by(name=name).first():
+        return jsonify({"error": "Category already exists"}), 400
+
+    category = Category(name=name)
+    db.session.add(category)
+    db.session.commit()
+
+    return jsonify({"id": category.id, "name": category.name}), 201
+
+
+@app.route("/api/categories", methods=["GET"])
+def get_categories():
+    categories = Category.query.order_by(Category.name.asc()).all()
+    return jsonify([
+        {"id": c.id, "name": c.name} for c in categories
+    ])
+
+
+@app.route("/api/tasks", methods=["GET"])
+def get_tasks():
+    tasks = Task.query.order_by(Task.created_at.desc()).all()
+
+    return jsonify([
+        {
+            "id": t.id,
+            "title": t.title,
+            "description": t.description,
+            "deadline": t.deadline,
+            "priority": t.priority,
+            "status": t.status,
+            "category_id": t.category_id,
+            "category": t.category.name if t.category else None
+        }
+        for t in tasks
+    ])
+
 
 @app.route("/api/tasks", methods=["POST"])
-def api_create_task():
-    """Create a new task."""
-    data = request.get_json() or {}
+def create_task():
+    data = request.get_json()
 
-    title = (data.get("title") or "").strip()
-    deadline = (data.get("deadline") or "").strip()
-    description = (data.get("description") or "").strip()
-    priority = data.get("priority") or "Medium"
+    title = data.get("title", "").strip()
+    description = data.get("description", "")
+    deadline = data.get("deadline")
+    priority = data.get("priority", "Medium")
+    category_id = data.get("category_id")
 
     if not title or not deadline:
-        return jsonify({"error": "Title and Deadline are required."}), 400
+        return jsonify({"error": "Title and Deadline are required"}), 400
 
-    new_task = Task(
+    task = Task(
         title=title,
         description=description,
         deadline=deadline,
         priority=priority,
-        status="pending"
+        category_id=category_id
     )
-    db.session.add(new_task)
+
+    db.session.add(task)
     db.session.commit()
 
-    return jsonify(new_task.to_dict()), 201
+    return jsonify({"message": "Task created"}), 201
+
 
 @app.route("/api/tasks/<int:task_id>", methods=["PATCH"])
-def api_update_task(task_id):
-    """Update an existing task (edit page)."""
+def update_task(task_id):
     task = Task.query.get_or_404(task_id)
-    data = request.get_json() or {}
+    data = request.get_json()
 
-    title = data.get("title")
-    deadline = data.get("deadline")
+    task.title = data.get("title", task.title)
+    task.description = data.get("description", task.description)
+    task.deadline = data.get("deadline", task.deadline)
+    task.priority = data.get("priority", task.priority)
+    task.status = data.get("status", task.status)
+    task.category_id = data.get("category_id")
 
-    if title is not None:
-        task.title = title.strip()
-    if deadline is not None:
-        task.deadline = deadline.strip()
-
-    if "description" in data:
-        task.description = (data.get("description") or "").strip()
-    if "priority" in data:
-        task.priority = data.get("priority") or task.priority
-    if "status" in data:
-        task.status = data.get("status") or task.status
-
-    
     if not task.title or not task.deadline:
-        return jsonify({"error": "Title and Deadline cannot be empty."}), 400
+        return jsonify({"error": "Title and Deadline are required"}), 400
 
     db.session.commit()
-    return jsonify(task.to_dict()), 200
+    return jsonify({"message": "Task updated"}), 200
+
 
 @app.route("/api/tasks/<int:task_id>", methods=["DELETE"])
-def api_delete_task(task_id):
-    """Delete a task."""
+def delete_task(task_id):
     task = Task.query.get_or_404(task_id)
     db.session.delete(task)
     db.session.commit()
-    return jsonify({"message": "deleted"}), 200
+    return jsonify({"message": "Task deleted"}), 200
+
+
 
 if __name__ == "__main__":
     app.run(debug=True)
