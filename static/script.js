@@ -28,11 +28,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const categoryFilter = document.getElementById("category-filter");
     if (categoryFilter) {
         categoryFilter.addEventListener("change", () => {
-            if (document.getElementById("task-table-body")) renderTable();
-            if (document.getElementById("manager-list")) renderManager();
+            renderTable();
+            renderManager();
         });
     }
 });
+
+
+
 
 function loadTasks() {
     fetch("/api/tasks")
@@ -52,9 +55,12 @@ function loadCategories() {
         .then(data => {
             CATEGORIES = data;
             populateCategoryFilter();
+            populateTaskCategorySelect();
         })
         .catch(() => showError("Failed to load categories"));
 }
+
+
 
 
 function populateCategoryFilter() {
@@ -71,15 +77,31 @@ function populateCategoryFilter() {
     });
 }
 
+function populateTaskCategorySelect(selectedId = null) {
+    const select = document.getElementById("category");
+    if (!select) return;
+
+    select.innerHTML = `<option value="">Uncategorized</option>`;
+
+    CATEGORIES.forEach(c => {
+        const opt = document.createElement("option");
+        opt.value = c.id;
+        opt.textContent = c.name;
+
+        if (selectedId && String(c.id) === String(selectedId)) {
+            opt.selected = true;
+        }
+
+        select.appendChild(opt);
+    });
+}
+
 function addCategory() {
     const input = document.getElementById("category-name");
     if (!input) return;
 
     const name = input.value.trim();
-    if (!name) {
-        showError("Category name cannot be empty");
-        return;
-    }
+    if (!name) return showError("Category name cannot be empty");
 
     fetch("/api/categories", {
         method: "POST",
@@ -92,23 +114,32 @@ function addCategory() {
 
             showSuccess("Category added successfully");
             input.value = "";
-
-            // Refresh dropdown immediately
             loadCategories();
         })
-        .catch(err => {
-            showError(err.error || "Failed to add category");
-        });
+        .catch(err => showError(err.error || "Failed to add category"));
 }
+
+
 
 
 function toggleStatus(id, checked) {
     const status = checked ? "completed" : "pending";
 
+
+    const task = TASKS.find(t => t.id === id);
+    if (!task) return;
+
     fetch(`/api/tasks/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status })
+        body: JSON.stringify({
+            status,
+            category_id: task.category_id,
+            title: task.title,
+            description: task.description,
+            deadline: task.deadline,
+            priority: task.priority
+        })
     })
         .then(() => {
             showSuccess(
@@ -118,6 +149,8 @@ function toggleStatus(id, checked) {
         })
         .catch(() => showError("Failed to update task status"));
 }
+
+
 
 
 function renderDashboard() {
@@ -166,6 +199,7 @@ function renderDashboard() {
     });
 }
 
+
 function renderTable() {
     const tbody = document.getElementById("task-table-body");
     if (!tbody) return;
@@ -187,24 +221,21 @@ function renderTable() {
                 <td>
                     <input type="checkbox"
                         onclick="toggleStatus(${t.id}, this.checked)"
-                        ${t.status === "completed" ? "checked" : ""}
-                        style="transform:scale(1.2); margin-right:8px;">
+                        ${t.status === "completed" ? "checked" : ""}>
                     ${escapeHtml(t.title)}
                 </td>
                 <td>${escapeHtml(t.deadline || "-")}</td>
                 <td>${escapeHtml(t.priority)}</td>
                 <td>${escapeHtml(t.status)}</td>
                 <td>${t.category || "—"}</td>
-                <td class="col-small">
-                    <span class="icon-btn" onclick="goEdit(${t.id})">✏️</span>
-                </td>
-                <td class="col-small">
-                    <span class="icon-btn" onclick="deleteTask(${t.id})">🗑️</span>
-                </td>
+                <td><span class="icon-btn" onclick="goEdit(${t.id})">✏️</span></td>
+                <td><span class="icon-btn" onclick="deleteTask(${t.id})">🗑️</span></td>
             </tr>
         `;
     });
 }
+
+
 
 
 function renderManager() {
@@ -230,21 +261,18 @@ function renderManager() {
     tasks.forEach(t => {
         container.innerHTML += `
             <div class="manager-row">
-                <div class="left-section">
+                <div>
                     <input type="checkbox"
-                        class="task-checkbox"
                         onclick="toggleStatus(${t.id}, this.checked)"
                         ${t.status === "completed" ? "checked" : ""}>
-                    <div class="task-info">
-                        <strong>${escapeHtml(t.title)}</strong>
-                        <span class="muted">
-                            Due: ${escapeHtml(t.deadline)} |
-                            Priority: ${escapeHtml(t.priority)} |
-                            Category: ${t.category || "Uncategorized"}
-                        </span>
-                    </div>
+                    <strong>${escapeHtml(t.title)}</strong>
+                    <span class="muted">
+                        | Due: ${escapeHtml(t.deadline)} 
+                        | Priority: ${escapeHtml(t.priority)} 
+                        | Category: ${t.category || "Uncategorized"}
+                    </span>
                 </div>
-                <div class="right-section">
+                <div>
                     <span class="icon-btn" onclick="goEdit(${t.id})">✏️</span>
                     <span class="icon-btn" onclick="deleteTask(${t.id})">🗑️</span>
                 </div>
@@ -252,6 +280,8 @@ function renderManager() {
         `;
     });
 }
+
+
 
 
 function saveTask(e) {
@@ -264,8 +294,7 @@ function saveTask(e) {
     const category_id = document.getElementById("category")?.value || null;
 
     if (!title || !deadline) {
-        showError("Title and Deadline are required.");
-        return;
+        return showError("Title and Deadline are required.");
     }
 
     fetch("/api/tasks", {
@@ -291,8 +320,7 @@ function updateTask(e, id) {
     const category_id = document.getElementById("category")?.value || null;
 
     if (!title || !deadline) {
-        showError("Title and Deadline are required.");
-        return;
+        return showError("Title and Deadline are required.");
     }
 
     fetch(`/api/tasks/${id}`, {
@@ -313,7 +341,6 @@ function goEdit(id) {
     window.location.href = "/edit/" + id;
 }
 
-
 function deleteTask(id) {
     if (!confirm("Delete this task?")) return;
 
@@ -324,7 +351,6 @@ function deleteTask(id) {
         })
         .catch(() => showError("Failed to delete task."));
 }
-
 
 function showError(msg) {
     const box = document.getElementById("message-box");
@@ -338,7 +364,6 @@ function showSuccess(msg) {
     box.innerHTML = `<div class="alert-success">${escapeHtml(msg)}</div>`;
 }
 
-
 function escapeHtml(str) {
     if (!str) return "";
     return String(str)
@@ -348,33 +373,3 @@ function escapeHtml(str) {
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
 }
-
-function populateTaskCategorySelect(selectedId = null) {
-    const select = document.getElementById("category");
-    if (!select) return;
-
-    select.innerHTML = `<option value="">Uncategorized</option>`;
-
-    CATEGORIES.forEach(c => {
-        const opt = document.createElement("option");
-        opt.value = c.id;
-        opt.textContent = c.name;
-
-        if (selectedId && String(c.id) === String(selectedId)) {
-            opt.selected = true;
-        }
-
-        select.appendChild(opt);
-    });
-}
-
-const __loadCategories = loadCategories;
-loadCategories = function () {
-    __loadCategories();
-
-    setTimeout(() => {
-        const selectedId =
-            document.getElementById("category")?.dataset.selected || null;
-        populateTaskCategorySelect(selectedId);
-    }, 200);
-};
