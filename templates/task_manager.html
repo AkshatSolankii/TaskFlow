@@ -3,7 +3,6 @@
 
 <h2>Task Manager</h2>
 
-
 <div class="category-box">
     <input
         type="text"
@@ -28,13 +27,25 @@
 
 <div id="message-box"></div>
 
-
+<!-- ✅ TASK LIST -->
 <div id="manager-list" class="task-manager-list"></div>
+
+<!-- ✅ PAGINATION (ADD THIS) -->
+<div id="pagination" style="margin-top:20px;"></div>
 
 <script>
     document.addEventListener("DOMContentLoaded", () => {
-        loadCategories(); 
-        loadTasks();      
+        loadCategories();
+        loadTasks(1); // ✅ start from page 1
+    });
+
+    // 🔥 IMPORTANT: reload pagination on filter/search
+    document.getElementById("task-search")?.addEventListener("input", () => {
+        loadTasks(1);
+    });
+
+    document.getElementById("category-filter")?.addEventListener("change", () => {
+        loadTasks(1);
     });
 </script>
 

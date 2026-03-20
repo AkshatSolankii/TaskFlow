@@ -1,5 +1,9 @@
 let TASKS = [];
 let CATEGORIES = [];
+let CURRENT_PAGE = 1;
+let TOTAL_PAGES = 1;
+let LIMIT = 7; // you can change (5 / 10)
+let CURRENT_SORT = "created";
 
 document.addEventListener("DOMContentLoaded", () => {
     loadCategories();
@@ -39,27 +43,54 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 // ================= FIXED LOAD TASKS =================
-function loadTasks() {
-    fetch("/api/tasks")
+function loadTasks(page = 1) {
+    CURRENT_PAGE = page;
+
+    const isDashboard = document.getElementById("dashboard-cards");
+
+    let url = "/api/tasks";
+
+    // ✅ Apply pagination ONLY for non-dashboard pages
+    if (!isDashboard) {
+        url += `?page=${CURRENT_PAGE}&limit=${LIMIT}&sort=${CURRENT_SORT}`;
+    }
+
+    fetch(url)
         .then(res => {
-            if (!res.ok) throw new Error("Server error");
+            if (!res.ok) throw new Error("Failed to fetch tasks");
             return res.json();
         })
         .then(data => {
-            TASKS = Array.isArray(data) ? data : data.tasks || [];
+            console.log("API:", data);
 
-            renderDashboard();
-            renderTable();
-            renderManager();
-            renderMyTasks();
+            // ✅ Handle both formats
+            if (Array.isArray(data)) {
+                TASKS = data;
+                TOTAL_PAGES = 1;
+            } else {
+                TASKS = data.tasks || [];
+                TOTAL_PAGES = data.total_pages || 1;
+            }
+
+            // ✅ Render ONLY required page
+            if (document.getElementById("dashboard-cards")) {
+                renderDashboard();
+            }
+
+            if (document.getElementById("manager-list")) {
+                renderManager();
+            }
+
+            if (document.getElementById("task-table-body")) {
+                renderTable();
+            }
+
+            renderPagination();
         })
         .catch(err => {
-            console.error("TASK LOAD ERROR:", err);
-            showError("Could not load tasks.");
+            console.error("LOAD ERROR:", err);
         });
 }
-
-
 // ================= FIXED LOAD CATEGORIES =================
 function loadCategories() {
     fetch("/api/categories")
@@ -439,20 +470,41 @@ function renderMyTasks() {
 window.changeSort = function (value) {
     console.log("Sorting by:", value);
 
-    if (!TASKS || TASKS.length === 0) return;
+    // ✅ store selected sort
+    CURRENT_SORT = value;
 
-    if (value === "deadline") {
-        TASKS.sort((a, b) => (a.deadline || "").localeCompare(b.deadline || ""));
-    }
-    else if (value === "priority") {
-        const order = { High: 1, Medium: 2, Low: 3 };
-        TASKS.sort((a, b) => (order[a.priority] || 4) - (order[b.priority] || 4));
-    }
-    else if (value === "created") {
-        TASKS.sort((a, b) => (b.id || 0) - (a.id || 0));
-    }
+    // ✅ reset to first page
+    CURRENT_PAGE = 1;
 
-    renderDashboard();
-    renderTable();
-    renderManager();
+    // ✅ reload data from backend with sorting
+    loadTasks(1);
 };
+
+function renderPagination() {
+    const container = document.getElementById("pagination");
+    if (!container) return;
+
+    container.innerHTML = `
+        <button onclick="prevPage()" ${CURRENT_PAGE === 1 ? "disabled" : ""}>
+            ⬅ Prev
+        </button>
+
+        <span> Page ${CURRENT_PAGE} of ${TOTAL_PAGES} </span>
+
+        <button onclick="nextPage()" ${CURRENT_PAGE === TOTAL_PAGES ? "disabled" : ""}>
+            Next ➡
+        </button>
+    `;
+}
+
+function nextPage() {
+    if (CURRENT_PAGE < TOTAL_PAGES) {
+        loadTasks(CURRENT_PAGE + 1);
+    }
+}
+
+function prevPage() {
+    if (CURRENT_PAGE > 1) {
+        loadTasks(CURRENT_PAGE - 1);
+    }
+}

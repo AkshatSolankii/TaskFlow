@@ -151,15 +151,25 @@ textarea:focus {
 
 .cards-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    /* 🔥 FIXED */
     gap: 16px;
 }
 
 .card {
-    background: white;
+    width: 100%;
+    /* 🔥 MUST */
+    min-height: 140px;
+    /* equal height look */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+
+    padding: 14px;
     border-radius: 12px;
-    padding: 14px 14px 10px;
-    box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    transition: 0.2s ease;
 }
 
 .card:hover {
@@ -170,13 +180,17 @@ textarea:focus {
 .card-head {
     display: flex;
     justify-content: space-between;
-    margin-bottom: 6px;
+    align-items: center;
+    margin-bottom: 8px;
 }
 
 .task-title {
     font-weight: 600;
-    font-size: 15px;
+    font-size: 14px;
+    color: #0f172a;
 }
+
+
 
 .card-body {
     font-size: 13px;
@@ -186,8 +200,9 @@ textarea:focus {
 
 .card-footer {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 10px;
 }
 
 .priority-badge {
@@ -270,10 +285,37 @@ textarea:focus {
     gap: 10px;
 }
 
+.pagination-container {
+    margin-top: 25px;
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+}
+
+.pagination-container button {
+    padding: 8px 14px;
+    border: none;
+    border-radius: 8px;
+    background: #4f46e5;
+    color: white;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.pagination-container button:hover {
+    background: #4338ca;
+}
+
+.pagination-container button:disabled {
+    background: #cbd5f5;
+    cursor: not-allowed;
+}
+
 .manager-row {
     background: white;
     padding: 10px 12px;
     border-radius: 10px;
+    margin-bottom: 10px;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -362,6 +404,24 @@ textarea:focus {
     font-size: 13px;
 }
 
+.icon-btn {
+    cursor: pointer;
+    font-size: 16px;
+    transition: 0.2s;
+}
+
+.icon-btn:hover {
+    transform: scale(1.2);
+}
+
+.icon-btn.edit:hover {
+    color: #3b82f6;
+}
+
+.icon-btn.delete:hover {
+    color: #ef4444;
+}
+
 .icon-btn,
 .edit-btn,
 .delete-btn {
@@ -441,4 +501,4 @@ textarea:focus {
     border-radius: 8px;
     border: 1px solid #d1d5db;
     font-size: 14px;
-}   
+}

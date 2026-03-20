@@ -5,7 +5,7 @@
 
 <div id="message-box"></div>
 
-<!-- 🔽 SORTING DROPDOWN -->
+<!-- 🔽 SORTING -->
 <div class="sort-container">
     <label>Sort By:</label>
     <select onchange="changeSort(this.value)" class="sort-dropdown">
@@ -14,60 +14,14 @@
         <option value="priority">Priority</option>
     </select>
 </div>
-<div id="manager-list"></div>
 
-<!-- TASK LIST -->
-<div id="my-tasks-wrapper" class="task-list">
-    <!-- JS will inject updated tasks here -->
-</div>
+<!-- ✅ TASK LIST -->
+<div id="manager-list" class="task-list"></div>
 
-<!-- 🔽 PAGINATION -->
-<div id="pagination-controls" style="margin-top:20px;"></div>
+<!-- ❌ REMOVE this (duplicate) -->
+<!-- <div id="my-tasks-wrapper"></div> -->
 
-<script>
-    document.addEventListener("DOMContentLoaded", () => {
-        // ❌ REMOVE old setTimeout (important)
-        // setTimeout(renderMyTasks, 300);
-    });
-
-    /* Render My Tasks */
-    function renderMyTasks() {
-        const wrapper = document.getElementById("my-tasks-wrapper");
-        if (!wrapper) return;
-
-        wrapper.innerHTML = "";
-
-        if (!TASKS || TASKS.length === 0) {
-            wrapper.innerHTML = `<p class="muted">No tasks found.</p>`;
-            return;
-        }
-
-        TASKS.forEach(t => {
-            const div = document.createElement("div");
-            div.className = "task-item";
-
-            div.innerHTML = `
-                <div style="display:flex; align-items:center; gap:6px;">
-                    <input type="checkbox"
-                        onclick="toggleStatus(${t.id}, this.checked)"
-                        ${t.status === "completed" ? "checked" : ""}
-                        style="transform:scale(1.2); cursor:pointer;">
-
-                    <span class="priority-dot ${t.priority.toLowerCase()}"></span>
-
-                    <b>${escapeHtml(t.title)}</b>
-
-                    ${t.deadline ? `<span class="muted"> (Due: ${escapeHtml(t.deadline)})</span>` : ""}
-                </div>
-
-                <div class="actions">
-                    <a href="/edit/${t.id}">✏️</a>
-                </div>
-            `;
-
-            wrapper.appendChild(div);
-        });
-    }
-</script>
+<!-- ✅ PAGINATION -->
+<div id="pagination" style="margin-top:20px;"></div>
 
 {% endblock %}
