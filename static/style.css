@@ -2,6 +2,7 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    cursor: pointer;
     font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
@@ -11,6 +12,38 @@ body {
     color: #111827;
 }
 
+/* ===== SORT DROPDOWN ===== */
+.sort-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.sort-container label {
+    font-weight: 600;
+    color: #333;
+}
+
+.sort-dropdown {
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    background: #fff;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.sort-dropdown:hover {
+    border-color: #007bff;
+}
+
+.sort-dropdown:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 4px rgba(0, 123, 255, 0.3);
+}
 
 .sidebar {
     width: 220px;
@@ -408,4 +441,4 @@ textarea:focus {
     border-radius: 8px;
     border: 1px solid #d1d5db;
     font-size: 14px;
-}
+}   

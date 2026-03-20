@@ -37,28 +37,48 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
+
+// ================= FIXED LOAD TASKS =================
 function loadTasks() {
     fetch("/api/tasks")
-        .then(res => res.json())
+        .then(res => {
+            if (!res.ok) throw new Error("Server error");
+            return res.json();
+        })
         .then(data => {
-            TASKS = data;
+            TASKS = Array.isArray(data) ? data : data.tasks || [];
+
             renderDashboard();
             renderTable();
             renderManager();
+            renderMyTasks();
         })
-        .catch(() => showError("Could not load tasks."));
+        .catch(err => {
+            console.error("TASK LOAD ERROR:", err);
+            showError("Could not load tasks.");
+        });
 }
 
+
+// ================= FIXED LOAD CATEGORIES =================
 function loadCategories() {
     fetch("/api/categories")
-        .then(res => res.json())
+        .then(res => {
+            if (!res.ok) throw new Error("Server error");
+            return res.json();
+        })
         .then(data => {
-            CATEGORIES = data;
+            CATEGORIES = Array.isArray(data) ? data : data.categories || [];
+
             populateCategoryFilter();
             populateTaskCategorySelect();
         })
-        .catch(() => showError("Failed to load categories"));
+        .catch(err => {
+            console.error("CATEGORY LOAD ERROR:", err);
+            showError("Failed to load categories");
+        });
 }
+
 
 
 
@@ -108,24 +128,24 @@ function addCategory() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name })
     })
-        .then(res => res.json().then(data => ({ ok: res.ok, data })))
-        .then(({ ok, data }) => {
-            if (!ok) throw data;
-
+        .then(res => {
+            if (!res.ok) throw new Error("Failed");
+            return res.json();
+        })
+        .then(() => {
             showSuccess("Category added successfully");
             input.value = "";
             loadCategories();
         })
-        .catch(err => showError(err.error || "Failed to add category"));
+        .catch(err => showError(err.message || "Failed to add category"));
 }
+
 
 
 
 
 function toggleStatus(id, checked) {
     const status = checked ? "completed" : "pending";
-
-
     const task = TASKS.find(t => t.id === id);
     if (!task) return;
 
@@ -141,14 +161,14 @@ function toggleStatus(id, checked) {
             priority: task.priority
         })
     })
-        .then(() => {
-            showSuccess(
-                checked ? "Task marked as completed" : "Task marked as pending"
-            );
+        .then(res => {
+            if (!res.ok) throw new Error();
+            showSuccess(checked ? "Task completed" : "Task pending");
             loadTasks();
         })
         .catch(() => showError("Failed to update task status"));
 }
+
 
 
 
@@ -200,6 +220,9 @@ function renderDashboard() {
 }
 
 
+
+
+
 function renderTable() {
     const tbody = document.getElementById("task-table-body");
     if (!tbody) return;
@@ -234,6 +257,7 @@ function renderTable() {
         `;
     });
 }
+
 
 
 
@@ -284,6 +308,7 @@ function renderManager() {
 
 
 
+
 function saveTask(e) {
     e.preventDefault();
 
@@ -302,12 +327,17 @@ function saveTask(e) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, description, deadline, priority, category_id })
     })
-        .then(() => {
+        .then(res => {
+            if (!res.ok) throw new Error();
             showSuccess("Task created successfully.");
             setTimeout(() => window.location.href = "/", 700);
         })
         .catch(() => showError("Failed to create task."));
 }
+
+
+
+
 
 function updateTask(e, id) {
     e.preventDefault();
@@ -330,12 +360,17 @@ function updateTask(e, id) {
             title, description, deadline, priority, status, category_id
         })
     })
-        .then(() => {
+        .then(res => {
+            if (!res.ok) throw new Error();
             showSuccess("Task updated successfully.");
             setTimeout(() => window.location.href = "/", 700);
         })
         .catch(() => showError("Failed to update task."));
 }
+
+
+
+
 
 function goEdit(id) {
     window.location.href = "/edit/" + id;
@@ -345,12 +380,17 @@ function deleteTask(id) {
     if (!confirm("Delete this task?")) return;
 
     fetch(`/api/tasks/${id}`, { method: "DELETE" })
-        .then(() => {
+        .then(res => {
+            if (!res.ok) throw new Error();
             showSuccess("Task deleted.");
             loadTasks();
         })
         .catch(() => showError("Failed to delete task."));
 }
+
+
+
+
 
 function showError(msg) {
     const box = document.getElementById("message-box");
@@ -373,3 +413,46 @@ function escapeHtml(str) {
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
 }
+function renderMyTasks() {
+    const container = document.getElementById("my-tasks-container");
+    if (!container) return;
+
+    container.innerHTML = "";
+
+    if (TASKS.length === 0) {
+        container.innerHTML = `<p class="muted">No tasks found.</p>`;
+        return;
+    }
+
+    TASKS.forEach(t => {
+        container.innerHTML += `
+            <div class="task-card">
+                <h3>${escapeHtml(t.title)}</h3>
+                <p>Due: ${t.deadline || "-"}</p>
+                <p>Priority: ${t.priority}</p>
+                <p>Status: ${t.status}</p>
+            </div>
+        `;
+    });
+}
+
+window.changeSort = function (value) {
+    console.log("Sorting by:", value);
+
+    if (!TASKS || TASKS.length === 0) return;
+
+    if (value === "deadline") {
+        TASKS.sort((a, b) => (a.deadline || "").localeCompare(b.deadline || ""));
+    }
+    else if (value === "priority") {
+        const order = { High: 1, Medium: 2, Low: 3 };
+        TASKS.sort((a, b) => (order[a.priority] || 4) - (order[b.priority] || 4));
+    }
+    else if (value === "created") {
+        TASKS.sort((a, b) => (b.id || 0) - (a.id || 0));
+    }
+
+    renderDashboard();
+    renderTable();
+    renderManager();
+};

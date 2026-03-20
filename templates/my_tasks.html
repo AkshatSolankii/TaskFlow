@@ -5,17 +5,32 @@
 
 <div id="message-box"></div>
 
+<!-- 🔽 SORTING DROPDOWN -->
+<div class="sort-container">
+    <label>Sort By:</label>
+    <select onchange="changeSort(this.value)" class="sort-dropdown">
+        <option value="created">Created</option>
+        <option value="deadline">Deadline</option>
+        <option value="priority">Priority</option>
+    </select>
+</div>
+<div id="manager-list"></div>
+
+<!-- TASK LIST -->
 <div id="my-tasks-wrapper" class="task-list">
     <!-- JS will inject updated tasks here -->
 </div>
 
+<!-- 🔽 PAGINATION -->
+<div id="pagination-controls" style="margin-top:20px;"></div>
+
 <script>
     document.addEventListener("DOMContentLoaded", () => {
-        loadTasks();           // fetch tasks
-        setTimeout(renderMyTasks, 300);  // render with checkbox
+        // ❌ REMOVE old setTimeout (important)
+        // setTimeout(renderMyTasks, 300);
     });
 
-    /* Render My Tasks with Checkbox */
+    /* Render My Tasks */
     function renderMyTasks() {
         const wrapper = document.getElementById("my-tasks-wrapper");
         if (!wrapper) return;
@@ -23,7 +38,7 @@
         wrapper.innerHTML = "";
 
         if (!TASKS || TASKS.length === 0) {
-            wrapper.innerHTML = `<p class="muted">No tasks yet.</p>`;
+            wrapper.innerHTML = `<p class="muted">No tasks found.</p>`;
             return;
         }
 
