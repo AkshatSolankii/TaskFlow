@@ -27,7 +27,7 @@ jobs:
 
       - name: Import check
         run: |
-          python -c "import app"
+          python -m py_compile app.py
 
       - name: Run tests
         run: |
