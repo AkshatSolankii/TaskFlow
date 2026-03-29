@@ -237,7 +237,7 @@ function renderDashboard() {
                     <span class="priority-badge ${badge}">${t.priority}</span>
                 </div>
                 <div class="card-body">
-                    <div>Due: ${escapeHtml(t.deadline || "-")}</div>
+                    <div>Due: ${t.deadline ? new Date(t.deadline).toLocaleString() : "-"}</div>
                     <div>Status: ${escapeHtml(t.status)}</div>
                     <div class="muted">Category: ${t.category || "Uncategorized"}</div>
                 </div>
@@ -278,7 +278,7 @@ function renderTable() {
                         ${t.status === "completed" ? "checked" : ""}>
                     ${escapeHtml(t.title)}
                 </td>
-                <td>${escapeHtml(t.deadline || "-")}</td>
+                <td>${t.deadline ? new Date(t.deadline).toLocaleString() : "-"}</td>
                 <td>${escapeHtml(t.priority)}</td>
                 <td>${escapeHtml(t.status)}</td>
                 <td>${t.category || "—"}</td>
@@ -321,11 +321,14 @@ function renderManager() {
                         onclick="toggleStatus(${t.id}, this.checked)"
                         ${t.status === "completed" ? "checked" : ""}>
                     <strong>${escapeHtml(t.title)}</strong>
-                    <span class="muted">
-                        | Due: ${escapeHtml(t.deadline)} 
-                        | Priority: ${escapeHtml(t.priority)} 
-                        | Category: ${t.category || "Uncategorized"}
-                    </span>
+                   <span class="muted">
+    | Due: ${t.deadline ? new Date(t.deadline).toLocaleString('en-IN', {
+            dateStyle: 'medium',
+            timeStyle: 'short'
+        }) : "-"} 
+    | Priority: ${escapeHtml(t.priority)} 
+    | Category: ${t.category || "Uncategorized"}
+</span>
                 </div>
                 <div>
                     <span class="icon-btn" onclick="goEdit(${t.id})">✏️</span>
@@ -345,18 +348,34 @@ function saveTask(e) {
 
     const title = document.getElementById("title").value.trim();
     const description = document.getElementById("description").value.trim();
-    const deadline = document.getElementById("deadline").value;
+    const deadlineInput = document.getElementById("deadline").value;
     const priority = document.getElementById("priority").value;
     const category_id = document.getElementById("category")?.value || null;
 
-    if (!title || !deadline) {
+    // ✅ REQUIRED VALIDATION
+    if (!title || !deadlineInput) {
         return showError("Title and Deadline are required.");
     }
 
+    // ✅ PAST DATE VALIDATION
+    const selected = new Date(deadlineInput);
+    const now = new Date();
+
+    if (selected < now) {
+        return showError("Deadline cannot be in the past.");
+    }
+
+    // ✅ SEND TO BACKEND
     fetch("/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, description, deadline, priority, category_id })
+        body: JSON.stringify({
+            title,
+            description,
+            deadline: deadlineInput, // 🔥 FIXED KEY
+            priority,
+            category_id
+        })
     })
         .then(res => {
             if (!res.ok) throw new Error();
@@ -483,6 +502,12 @@ window.changeSort = function (value) {
 function renderPagination() {
     const container = document.getElementById("pagination");
     if (!container) return;
+
+    // 🔥 HIDE pagination if only 1 page
+    if (TOTAL_PAGES <= 1) {
+        container.innerHTML = "";
+        return;
+    }
 
     container.innerHTML = `
         <button onclick="prevPage()" ${CURRENT_PAGE === 1 ? "disabled" : ""}>

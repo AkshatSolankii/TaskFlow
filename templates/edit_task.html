@@ -19,7 +19,11 @@
 
 
     <label for="deadline">Deadline *</label>
-    <input type="date" id="deadline" class="input-box" value="{{ task.deadline }}">
+    <input 
+    type="datetime-local" 
+    id="deadline" 
+    class="input-box" 
+     value="{{ task.deadline.replace(' ', 'T')[:16] if task.deadline else '' }}">
 
     <label for="priority">Priority</label>
     <select id="priority" class="input-box">

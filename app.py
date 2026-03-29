@@ -29,7 +29,7 @@ class Task(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text)
-    deadline = db.Column(db.String(20))
+    deadline = db.Column(db.String(20))  # keeping string but formatted
     priority = db.Column(db.String(20), default="Medium")
     status = db.Column(db.String(20), default="pending")
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -40,6 +40,23 @@ class Task(db.Model):
 
 with app.app_context():
     db.create_all()
+
+# ------------------ HELPER ------------------
+def format_deadline(deadline_str):
+    if not deadline_str:
+        return None
+    try:
+        # ISO format: 2026-03-30T14:30
+        dt = datetime.fromisoformat(deadline_str)
+    except:
+        try:
+            # fallback: 2026-03-30 14:30:00
+            dt = datetime.strptime(deadline_str, "%Y-%m-%d %H:%M:%S")
+        except:
+            return None
+
+    return dt.strftime("%Y-%m-%d %H:%M:%S")
+
 
 # ------------------ PAGES ------------------
 @app.route("/")
@@ -72,6 +89,7 @@ def table_page():
 def my_tasks():
     return render_template("my_tasks.html")
 
+
 # ------------------ CATEGORY API ------------------
 @app.route("/api/categories", methods=["POST"])
 def create_category():
@@ -100,16 +118,14 @@ def get_categories():
         for c in categories
     ])
 
+
 # ------------------ TASK API ------------------
 @app.route("/api/tasks", methods=["GET"])
 def get_tasks():
-
-    # -------- QUERY PARAMS --------
     page = int(request.args.get("page", 1))
     limit = int(request.args.get("limit", 10))
     sort = request.args.get("sort", "created")
 
-    # -------- BASE QUERY --------
     query = Task.query
 
     # -------- SORTING --------
@@ -151,13 +167,14 @@ def get_tasks():
     })
 
 
+# ------------------ CREATE TASK ------------------
 @app.route("/api/tasks", methods=["POST"])
 def create_task():
     data = request.get_json()
 
     title = data.get("title", "").strip()
     description = data.get("description", "")
-    deadline = data.get("deadline")
+    deadline = format_deadline(data.get("deadline"))
     priority = data.get("priority", "Medium")
     category_id = data.get("category_id")
 
@@ -178,6 +195,7 @@ def create_task():
     return jsonify({"message": "Task created"}), 201
 
 
+# ------------------ UPDATE TASK ------------------
 @app.route("/api/tasks/<int:task_id>", methods=["PATCH"])
 def update_task(task_id):
     task = Task.query.get_or_404(task_id)
@@ -185,7 +203,12 @@ def update_task(task_id):
 
     task.title = data.get("title", task.title)
     task.description = data.get("description", task.description)
-    task.deadline = data.get("deadline", task.deadline)
+
+    if "deadline" in data:
+        formatted = format_deadline(data.get("deadline"))
+        if formatted:
+            task.deadline = formatted
+
     task.priority = data.get("priority", task.priority)
     task.status = data.get("status", task.status)
     task.category_id = data.get("category_id")
@@ -197,6 +220,7 @@ def update_task(task_id):
     return jsonify({"message": "Task updated"}), 200
 
 
+# ------------------ DELETE TASK ------------------
 @app.route("/api/tasks/<int:task_id>", methods=["DELETE"])
 def delete_task(task_id):
     task = Task.query.get_or_404(task_id)

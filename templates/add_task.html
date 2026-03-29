@@ -1,4 +1,3 @@
-
 {% extends "base.html" %}
 {% block content %}
 
@@ -7,22 +6,23 @@
 <div id="message-box"></div>
 
 <form class="form-box" onsubmit="saveTask(event)">
-    <label for="title">Title *</label>
+    <label for="title" class="form-label">Title </label>
     <input type="text" id="title" class="input-box" placeholder="Enter task title">
 
-    <label for="description">Description</label>
+    <label for="description" class="form-label">Description</label>
     <textarea id="description" class="input-box" rows="3" placeholder="Short description"></textarea>
 
-    <label>Category</label>
+    <label class="form-label">Category</label>
     <select id="category" class="input-box">
         <option value="">Uncategorized</option>
     </select>
 
+    <div class="deadline-group">
+        <label for="deadline" class="form-label" style="font-weight: bold; font-size: large;">Deadline (Date & Time)</label>
+        <input type="datetime-local" id="deadline" class="input-box">
+    </div>
 
-    <label for="deadline">Deadline *</label>
-    <input type="date" id="deadline" class="input-box">
-
-    <label for="priority">Priority</label>
+    <label for="priority" class="form-label">Priority</label>
     <select id="priority" class="input-box">
         <option>High</option>
         <option selected>Medium</option>

@@ -422,6 +422,58 @@ textarea:focus {
     color: #ef4444;
 }
 
+/* Wrapper (optional for spacing) */
+.deadline-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 15px;
+}
+
+label {
+    font-weight: bold;
+}
+
+/* Label */
+.deadline-group label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #334155;
+}
+
+/* Input styling */
+input[type="datetime-local"] {
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid #cbd5f5;
+    font-size: 14px;
+    width: 100%;
+    background: #ffffff;
+    transition: all 0.2s ease;
+}
+
+/* Focus effect */
+input[type="datetime-local"]:focus {
+    outline: none;
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+}
+
+/* Hover effect */
+input[type="datetime-local"]:hover {
+    border-color: #94a3b8;
+}
+
+/* Placeholder-like color (empty input look) */
+input[type="datetime-local"]:invalid {
+    color: #94a3b8;
+}
+
+/* Optional icon feel */
+.deadline-input {
+    position: relative;
+}
+
 .icon-btn,
 .edit-btn,
 .delete-btn {
