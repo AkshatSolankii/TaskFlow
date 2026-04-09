@@ -211,13 +211,57 @@ function renderDashboard() {
     container.innerHTML = "";
 
     const mode = document.getElementById("view-filter")?.value || "all";
-    const today = new Date().toISOString().slice(0, 10);
 
     let tasks = [...TASKS];
 
-    if (mode === "today") tasks = tasks.filter(t => t.deadline === today);
-    if (mode === "pending") tasks = tasks.filter(t => t.status === "pending");
-    if (mode === "completed") tasks = tasks.filter(t => t.status === "completed");
+    // 🔥 HELPER FUNCTION
+    function getType(t) {
+        if (!t.deadline) return "normal";
+
+        const now = new Date();
+        const due = new Date(t.deadline);
+
+        // Overdue
+        if (t.status !== "completed" && due < now) return "overdue";
+
+        // Today
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const dueDate = new Date(due);
+        dueDate.setHours(0, 0, 0, 0);
+
+        if (dueDate.getTime() === today.getTime()) return "today";
+
+        // This week
+        const weekEnd = new Date();
+        weekEnd.setDate(weekEnd.getDate() + 7);
+
+        if (due > now && due <= weekEnd) return "week";
+
+        return "normal";
+    }
+
+    // 🔥 FILTERS
+    if (mode === "today") {
+        tasks = tasks.filter(t => getType(t) === "today");
+    }
+
+    if (mode === "week") {
+        tasks = tasks.filter(t => getType(t) === "week");
+    }
+
+    if (mode === "overdue") {
+        tasks = tasks.filter(t => getType(t) === "overdue");
+    }
+
+    if (mode === "pending") {
+        tasks = tasks.filter(t => t.status === "pending");
+    }
+
+    if (mode === "completed") {
+        tasks = tasks.filter(t => t.status === "completed");
+    }
 
     if (tasks.length === 0) {
         container.innerHTML = `<p class="muted">No tasks found.</p>`;
@@ -230,17 +274,40 @@ function renderDashboard() {
                 t.priority === "Low" ? "priority-low" :
                     "priority-medium";
 
+        const type = getType(t);
+
+        // 🔥 STATUS LABEL
+        let statusLabel = "";
+        if (type === "overdue") statusLabel = `<span class="status-badge red">Overdue</span>`;
+        if (type === "today") statusLabel = `<span class="status-badge yellow">Today</span>`;
+        if (type === "week") statusLabel = `<span class="status-badge green">This Week</span>`;
+
         container.innerHTML += `
-            <div class="card">
+            <div class="card task-${type}">
                 <div class="card-head">
                     <span class="task-title">${escapeHtml(t.title)}</span>
                     <span class="priority-badge ${badge}">${t.priority}</span>
                 </div>
+
                 <div class="card-body">
-                    <div>Due: ${t.deadline ? new Date(t.deadline).toLocaleString() : "-"}</div>
+                    <div>
+                        Due: ${t.deadline
+                ? new Date(t.deadline).toLocaleString('en-IN', {
+                    dateStyle: 'medium',
+                    timeStyle: 'short'
+                })
+                : "-"}
+                    </div>
+
                     <div>Status: ${escapeHtml(t.status)}</div>
-                    <div class="muted">Category: ${t.category || "Uncategorized"}</div>
+
+                    <div class="muted">
+                        Category: ${t.category || "Uncategorized"}
+                    </div>
+
+                    ${statusLabel}
                 </div>
+
                 <div class="card-footer">
                     <span class="icon-btn" onclick="goEdit(${t.id})">✏️ Edit</span>
                     <span class="icon-btn" onclick="deleteTask(${t.id})">🗑️ Delete</span>
@@ -394,20 +461,35 @@ function updateTask(e, id) {
 
     const title = document.getElementById("title").value.trim();
     const description = document.getElementById("description").value.trim();
-    const deadline = document.getElementById("deadline").value;
+    const deadlineInput = document.getElementById("deadline").value;
     const priority = document.getElementById("priority").value;
     const status = document.getElementById("status").value;
     const category_id = document.getElementById("category")?.value || null;
 
-    if (!title || !deadline) {
+    // ✅ REQUIRED VALIDATION
+    if (!title || !deadlineInput) {
         return showError("Title and Deadline are required.");
     }
 
+    // ✅ PAST DATE VALIDATION
+    const selected = new Date(deadlineInput);
+    const now = new Date();
+
+    if (selected < now) {
+        return showError("Deadline cannot be in the past.");
+    }
+
+    // ✅ API CALL
     fetch(`/api/tasks/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-            title, description, deadline, priority, status, category_id
+            title,
+            description,
+            deadline: deadlineInput, // 🔥 datetime value
+            priority,
+            status,
+            category_id
         })
     })
         .then(res => {
@@ -417,9 +499,6 @@ function updateTask(e, id) {
         })
         .catch(() => showError("Failed to update task."));
 }
-
-
-
 
 
 function goEdit(id) {
@@ -532,4 +611,36 @@ function prevPage() {
     if (CURRENT_PAGE > 1) {
         loadTasks(CURRENT_PAGE - 1);
     }
+}
+
+
+function getTaskStatusType(task) {
+    if (!task.deadline) return "none";
+
+    const now = new Date();
+    const due = new Date(task.deadline);
+
+    if (task.status !== "completed" && due < now) {
+        return "overdue";
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const dueDate = new Date(due);
+    dueDate.setHours(0, 0, 0, 0);
+
+    if (dueDate.getTime() === today.getTime()) {
+        return "today";
+    }
+
+    // this week
+    const weekEnd = new Date();
+    weekEnd.setDate(weekEnd.getDate() + 7);
+
+    if (due > now && due <= weekEnd) {
+        return "week";
+    }
+
+    return "normal";
 }
