@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - TaskFlow</title>
+
+    <link rel="stylesheet"
+        href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body class="auth-body">
+
+<div class="auth-container">
+
+    <h1 class="auth-title">Create Account</h1>
+
+    <div id="message-box"></div>
+
+    <form onsubmit="event.preventDefault(); registerUser();">
+
+        <input
+            type="text"
+            id="register-username"
+            placeholder="Enter Username"
+            required
+        >
+
+        <input
+            type="email"
+            id="register-email"
+            placeholder="Enter Email"
+            required
+        >
+
+        <input
+            type="password"
+            id="register-password"
+            placeholder="Enter Password"
+            required
+        >
+
+        <button type="submit">
+            Register
+        </button>
+
+    </form>
+
+    <p class="auth-link">
+        Already have an account?
+
+        <a href="/login">
+            Login
+        </a>
+    </p>
+
+</div>
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+
+</body>
+</html>

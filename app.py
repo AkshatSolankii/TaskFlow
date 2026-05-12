@@ -1,64 +1,57 @@
-from flask import Flask, request, jsonify, render_template
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import case
-from datetime import datetime
+from flask import Flask, render_template
 import os
+
+# MODELS
+from models import db
+
+# EXTENSIONS
+from extensions import bcrypt, login_manager
+
+# ROUTES
+from routes import task_bp
+
+# NEW AUTH IMPORT
+from auth import auth_bp
 
 app = Flask(__name__)
 
 # ------------------ CONFIG ------------------
+
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+
 DB_PATH = os.path.join(BASE_DIR, "tasks.db")
 
 app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{DB_PATH}"
+
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-db = SQLAlchemy(app)
+app.config["SECRET_KEY"] = "super-secret-key"
 
-# ------------------ MODELS ------------------
-class Category(db.Model):
-    __tablename__ = "categories"
+# ------------------ INIT EXTENSIONS ------------------
 
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), unique=True, nullable=False)
+db.init_app(app)
 
+bcrypt.init_app(app)
 
-class Task(db.Model):
-    __tablename__ = "tasks"
+login_manager.init_app(app)
 
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(200), nullable=False)
-    description = db.Column(db.Text)
-    deadline = db.Column(db.String(20))  # keeping string but formatted
-    priority = db.Column(db.String(20), default="Medium")
-    status = db.Column(db.String(20), default="pending")
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+# 🔥 LOGIN PAGE
+login_manager.login_view = "login_page"
 
-    category_id = db.Column(db.Integer, db.ForeignKey("categories.id"), nullable=True)
-    category = db.relationship("Category", backref="tasks")
+# ------------------ REGISTER BLUEPRINTS ------------------
 
+app.register_blueprint(task_bp, url_prefix="/api")
+
+# NEW
+app.register_blueprint(auth_bp, url_prefix="/api")
+
+# ------------------ CREATE DATABASE ------------------
 
 with app.app_context():
     db.create_all()
 
-# ------------------ HELPER ------------------
-def format_deadline(deadline_str):
-    if not deadline_str:
-        return None
-    try:
-        # ISO format: 2026-03-30T14:30
-        dt = datetime.fromisoformat(deadline_str)
-    except:
-        try:
-            # fallback: 2026-03-30 14:30:00
-            dt = datetime.strptime(deadline_str, "%Y-%m-%d %H:%M:%S")
-        except:
-            return None
-
-    return dt.strftime("%Y-%m-%d %H:%M:%S")
-
-
 # ------------------ PAGES ------------------
+
 @app.route("/")
 def dashboard():
     return render_template("dashboard.html")
@@ -67,12 +60,6 @@ def dashboard():
 @app.route("/add")
 def add_page():
     return render_template("add_task.html")
-
-
-@app.route("/edit/<int:task_id>")
-def edit_page(task_id):
-    task = Task.query.get_or_404(task_id)
-    return render_template("edit_task.html", task=task)
 
 
 @app.route("/task-manager")
@@ -90,145 +77,17 @@ def my_tasks():
     return render_template("my_tasks.html")
 
 
-# ------------------ CATEGORY API ------------------
-@app.route("/api/categories", methods=["POST"])
-def create_category():
-    data = request.get_json()
-    name = data.get("name", "").strip()
-
-    if not name:
-        return jsonify({"error": "Category name is required"}), 400
-
-    if Category.query.filter_by(name=name).first():
-        return jsonify({"error": "Category already exists"}), 400
-
-    category = Category(name=name)
-    db.session.add(category)
-    db.session.commit()
-
-    return jsonify({"id": category.id, "name": category.name}), 201
+@app.route("/login")
+def login_page():
+    return render_template("login.html")
 
 
-@app.route("/api/categories", methods=["GET"])
-def get_categories():
-    categories = Category.query.order_by(Category.name.asc()).all()
-
-    return jsonify([
-        {"id": c.id, "name": c.name}
-        for c in categories
-    ])
-
-
-# ------------------ TASK API ------------------
-@app.route("/api/tasks", methods=["GET"])
-def get_tasks():
-    page = int(request.args.get("page", 1))
-    limit = int(request.args.get("limit", 10))
-    sort = request.args.get("sort", "created")
-
-    query = Task.query
-
-    # -------- SORTING --------
-    if sort == "deadline":
-        query = query.order_by(Task.deadline.asc())
-
-    elif sort == "priority":
-        priority_order = case(
-            (Task.priority == "High", 1),
-            (Task.priority == "Medium", 2),
-            (Task.priority == "Low", 3),
-        )
-        query = query.order_by(priority_order)
-
-    else:
-        query = query.order_by(Task.created_at.desc())
-
-    # -------- PAGINATION --------
-    pagination = query.paginate(page=page, per_page=limit, error_out=False)
-
-    tasks = pagination.items
-
-    return jsonify({
-        "tasks": [
-            {
-                "id": t.id,
-                "title": t.title,
-                "description": t.description,
-                "deadline": t.deadline,
-                "priority": t.priority,
-                "status": t.status,
-                "category_id": t.category_id,
-                "category": t.category.name if t.category else None
-            }
-            for t in tasks
-        ],
-        "page": page,
-        "total_pages": pagination.pages
-    })
-
-
-# ------------------ CREATE TASK ------------------
-@app.route("/api/tasks", methods=["POST"])
-def create_task():
-    data = request.get_json()
-
-    title = data.get("title", "").strip()
-    description = data.get("description", "")
-    deadline = format_deadline(data.get("deadline"))
-    priority = data.get("priority", "Medium")
-    category_id = data.get("category_id")
-
-    if not title or not deadline:
-        return jsonify({"error": "Title and Deadline are required"}), 400
-
-    task = Task(
-        title=title,
-        description=description,
-        deadline=deadline,
-        priority=priority,
-        category_id=category_id
-    )
-
-    db.session.add(task)
-    db.session.commit()
-
-    return jsonify({"message": "Task created"}), 201
-
-
-# ------------------ UPDATE TASK ------------------
-@app.route("/api/tasks/<int:task_id>", methods=["PATCH"])
-def update_task(task_id):
-    task = Task.query.get_or_404(task_id)
-    data = request.get_json()
-
-    task.title = data.get("title", task.title)
-    task.description = data.get("description", task.description)
-
-    if "deadline" in data:
-        formatted = format_deadline(data.get("deadline"))
-        if formatted:
-            task.deadline = formatted
-
-    task.priority = data.get("priority", task.priority)
-    task.status = data.get("status", task.status)
-    task.category_id = data.get("category_id")
-
-    if not task.title or not task.deadline:
-        return jsonify({"error": "Title and Deadline are required"}), 400
-
-    db.session.commit()
-    return jsonify({"message": "Task updated"}), 200
-
-
-# ------------------ DELETE TASK ------------------
-@app.route("/api/tasks/<int:task_id>", methods=["DELETE"])
-def delete_task(task_id):
-    task = Task.query.get_or_404(task_id)
-    db.session.delete(task)
-    db.session.commit()
-    return jsonify({"message": "Task deleted"}), 200
+@app.route("/register")
+def register_page():
+    return render_template("register.html")
 
 
 # ------------------ RUN ------------------
+
 if __name__ == "__main__":
     app.run(debug=True)
