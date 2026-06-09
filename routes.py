@@ -1,11 +1,17 @@
 from flask import Blueprint, request, jsonify
 from sqlalchemy import case
+from datetime import datetime
 from flask_login import (
     login_required,
     current_user
 )
 
-from models import db, Task, Category
+from models import (
+    db,
+    Task,
+    Category,
+    ActivityLog
+)
 
 task_bp = Blueprint('tasks', __name__)
 
@@ -28,14 +34,21 @@ def create_task():
         deadline=data.get('deadline'),
         priority=data.get('priority', 'Medium'),
         status=data.get('status', 'pending'),
-
-        # USER LINK
         user_id=current_user.id,
-
         category_id=data.get('category_id')
     )
 
     db.session.add(new_task)
+    db.session.commit()
+
+    activity = ActivityLog(
+        action="Created",
+        entity_type="Task",
+        entity_name=new_task.title,
+        user_id=current_user.id
+    )
+
+    db.session.add(activity)
     db.session.commit()
 
     return jsonify({
@@ -45,13 +58,10 @@ def create_task():
 
 
 # ================= GET TASKS =================
-# ================= GET TASKS =================
-# ================= GET TASKS =================
 @task_bp.route('/tasks', methods=['GET'])
 @login_required
 def get_tasks():
 
-    # 🔥 QUERY PARAMS
     page = request.args.get(
         'page',
         1,
@@ -70,23 +80,16 @@ def get_tasks():
         type=str
     )
 
-    # 🔥 BASE QUERY
     query = Task.query.filter_by(
         user_id=current_user.id
     )
 
-    # ================= SORTING =================
-
     if sort == "priority":
 
         priority_order = case(
-
             (Task.priority == "High", 1),
-
             (Task.priority == "Medium", 2),
-
             (Task.priority == "Low", 3),
-
             else_=4
         )
 
@@ -100,36 +103,24 @@ def get_tasks():
             Task.created_at.desc()
         )
 
-    # ================= PAGINATION =================
-
     pagination = query.paginate(
-
         page=page,
-
         per_page=limit,
-
         error_out=False
     )
 
-    # 🔥 TASK LIST
     task_list = [
-
         task.to_dict()
-
         for task in pagination.items
     ]
 
     return jsonify({
-
         "tasks": task_list,
-
         "page": pagination.page,
-
         "total_pages": pagination.pages,
-
         "total_tasks": pagination.total
-
     }), 200
+
 
 # ================= UPDATE TASK =================
 @task_bp.route('/tasks/<int:id>', methods=['PATCH'])
@@ -178,6 +169,14 @@ def update_task(id):
         task.category_id
     )
 
+    activity = ActivityLog(
+        action="Updated",
+        entity_type="Task",
+        entity_name=task.title,
+        user_id=current_user.id
+    )
+
+    db.session.add(activity)
     db.session.commit()
 
     return jsonify({
@@ -201,7 +200,19 @@ def delete_task(id):
             "error": "Task not found"
         }), 404
 
+    task_name = task.title
+
+    activity = ActivityLog(
+        action="Deleted",
+        entity_type="Task",
+        entity_name=task_name,
+        user_id=current_user.id
+    )
+
+    db.session.add(activity)
+
     db.session.delete(task)
+
     db.session.commit()
 
     return jsonify({
@@ -241,6 +252,16 @@ def create_category():
     db.session.add(category)
     db.session.commit()
 
+    activity = ActivityLog(
+        action="Created",
+        entity_type="Category",
+        entity_name=category.name,
+        user_id=current_user.id
+    )
+
+    db.session.add(activity)
+    db.session.commit()
+
     return jsonify({
         "id": category.id,
         "name": category.name
@@ -263,3 +284,181 @@ def get_categories():
         }
         for c in categories
     ])
+
+
+# ================= ACTIVITY LOG =================
+@task_bp.route('/activity-log', methods=['GET'])
+@login_required
+def activity_log():
+
+    logs = ActivityLog.query.filter_by(
+        user_id=current_user.id
+    ).order_by(
+        ActivityLog.timestamp.desc()
+    ).all()
+
+    return jsonify([
+        {
+            "action": log.action,
+            "entity_type": log.entity_type,
+            "entity_name": log.entity_name,
+            "timestamp": log.timestamp.strftime(
+                "%d-%b-%Y %H:%M"
+            )
+        }
+        for log in logs
+    ])
+# ================= UPDATE CATEGORY =================
+@task_bp.route('/categories/<int:id>', methods=['PATCH'])
+@login_required
+def update_category(id):
+
+    category = Category.query.filter_by(
+        id=id,
+        user_id=current_user.id
+    ).first()
+
+    if not category:
+        return jsonify({
+            "error": "Category not found"
+        }), 404
+
+    data = request.get_json()
+
+    new_name = data.get("name", "").strip()
+
+    if not new_name:
+        return jsonify({
+            "error": "Category name required"
+        }), 400
+
+    category.name = new_name
+
+    activity = ActivityLog(
+        action="Updated",
+        entity_type="Category",
+        entity_name=category.name,
+        user_id=current_user.id
+    )
+
+    db.session.add(activity)
+    db.session.commit()
+
+    return jsonify({
+        "message": "Category updated successfully"
+    }), 200
+
+
+# ================= DELETE CATEGORY =================
+@task_bp.route('/categories/<int:id>', methods=['DELETE'])
+@login_required
+def delete_category(id):
+
+    category = Category.query.filter_by(
+        id=id,
+        user_id=current_user.id
+    ).first()
+
+    if not category:
+        return jsonify({
+            "error": "Category not found"
+        }), 404
+
+    category_name = category.name
+
+    # Remove category from tasks
+    tasks = Task.query.filter_by(
+        category_id=id,
+        user_id=current_user.id
+    ).all()
+
+    for task in tasks:
+        task.category_id = None
+
+    activity = ActivityLog(
+        action="Deleted",
+        entity_type="Category",
+        entity_name=category_name,
+        user_id=current_user.id
+    )
+
+    db.session.add(activity)
+
+    db.session.delete(category)
+
+    db.session.commit()
+
+    return jsonify({
+        "message": "Category deleted successfully"
+    }), 200
+
+
+# ================= DASHBOARD STATS =================
+@task_bp.route('/dashboard-stats', methods=['GET'])
+@login_required
+def dashboard_stats():
+
+    tasks = Task.query.filter_by(
+        user_id=current_user.id
+    ).all()
+
+    total_tasks = len(tasks)
+
+    completed_tasks = len([
+        t for t in tasks
+        if t.status == "completed"
+    ])
+
+    pending_tasks = len([
+        t for t in tasks
+        if t.status == "pending"
+    ])
+
+    now = datetime.now()
+
+    overdue_tasks = 0
+
+    for task in tasks:
+
+        if (
+            task.deadline and
+            task.status != "completed"
+        ):
+
+            try:
+
+                deadline = datetime.fromisoformat(
+                    task.deadline
+                )
+
+                if deadline < now:
+                    overdue_tasks += 1
+
+            except:
+                pass
+
+    category_stats = []
+
+    categories = Category.query.filter_by(
+        user_id=current_user.id
+    ).all()
+
+    for category in categories:
+
+        count = Task.query.filter_by(
+            user_id=current_user.id,
+            category_id=category.id
+        ).count()
+
+        category_stats.append({
+            "name": category.name,
+            "count": count
+        })
+
+    return jsonify({
+        "total_tasks": total_tasks,
+        "completed_tasks": completed_tasks,
+        "pending_tasks": pending_tasks,
+        "overdue_tasks": overdue_tasks,
+        "categories": category_stats
+    })

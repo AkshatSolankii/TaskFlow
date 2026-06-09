@@ -154,18 +154,25 @@ function loadCategories() {
 
             // 🔥 Redirect if not logged in
             if (res.redirected) {
+
                 window.location.href = "/login";
+
                 return;
             }
 
             // 🔥 Handle unauthorized
             if (res.status === 401) {
+
                 window.location.href = "/login";
+
                 return;
             }
 
             if (!res.ok) {
-                throw new Error("Server error");
+
+                throw new Error(
+                    "Server error"
+                );
             }
 
             return res.json();
@@ -182,6 +189,10 @@ function loadCategories() {
             populateCategoryFilter();
 
             populateTaskCategorySelect();
+
+            // ✅ NEW
+            renderCategories();
+
         })
 
         .catch(err => {
@@ -255,7 +266,172 @@ function addCategory() {
 }
 
 
+function renderCategories() {
 
+    const container =
+        document.getElementById("category-list");
+
+    if (!container) return;
+
+    container.innerHTML = "";
+
+    if (CATEGORIES.length === 0) {
+
+        container.innerHTML =
+            `<p class="muted">No categories found.</p>`;
+
+        return;
+    }
+
+    CATEGORIES.forEach(category => {
+
+        container.innerHTML += `
+
+            <div class="manager-row">
+
+                <div>
+                    <strong>
+                        ${escapeHtml(category.name)}
+                    </strong>
+                </div>
+
+                <div>
+
+                    <span
+                        class="icon-btn"
+                        onclick="editCategory(${category.id})">
+
+                        ✏️
+                    </span>
+
+                    <span
+                        class="icon-btn"
+                        onclick="deleteCategory(${category.id})">
+
+                        🗑️
+                    </span>
+
+                </div>
+
+            </div>
+
+        `;
+    });
+}
+function editCategory(id) {
+
+    const category =
+        CATEGORIES.find(c => c.id === id);
+
+    if (!category) {
+
+        return showError(
+            "Category not found"
+        );
+    }
+
+    const newName = prompt(
+        "Enter new category name",
+        category.name
+    );
+
+    if (!newName ||
+        !newName.trim()) {
+
+        return;
+    }
+
+    fetch(`/api/categories/${id}`, {
+
+        method: "PATCH",
+
+        headers: {
+            "Content-Type": "application/json"
+        },
+
+        credentials: "include",
+
+        body: JSON.stringify({
+
+            name: newName.trim()
+
+        })
+
+    })
+
+        .then(res => {
+
+            if (!res.ok) {
+
+                throw new Error();
+            }
+
+            return res.json();
+        })
+
+        .then(() => {
+
+            showSuccess(
+                "Category updated successfully"
+            );
+
+            loadCategories();
+        })
+
+        .catch(() => {
+
+            showError(
+                "Failed to update category"
+            );
+        });
+}
+
+
+function deleteCategory(id) {
+
+    if (!confirm(
+        "Delete this category?"
+    )) {
+
+        return;
+    }
+
+    fetch(`/api/categories/${id}`, {
+
+        method: "DELETE",
+
+        credentials: "include"
+
+    })
+
+        .then(res => {
+
+            if (!res.ok) {
+
+                throw new Error();
+            }
+
+            return res.json();
+        })
+
+        .then(() => {
+
+            showSuccess(
+                "Category deleted successfully"
+            );
+
+            loadCategories();
+
+            loadTasks();
+        })
+
+        .catch(() => {
+
+            showError(
+                "Failed to delete category"
+            );
+        });
+}
 
 
 function toggleStatus(id, checked) {

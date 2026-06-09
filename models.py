@@ -142,6 +142,46 @@ class Task(db.Model):
 
     def __repr__(self):
         return f"<Task {self.title}>"
+    
+# ================= ACTIVITY LOG =================
+class ActivityLog(db.Model):
+    __tablename__ = "activity_logs"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    action = db.Column(
+        db.String(50),
+        nullable=False
+    )
+
+    entity_type = db.Column(
+        db.String(50),
+        nullable=False
+    )
+
+    entity_name = db.Column(
+        db.String(200),
+        nullable=False
+    )
+
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id"),
+        nullable=False
+    )
+
+    timestamp = db.Column(
+        db.DateTime,
+        default=datetime.utcnow
+    )
+
+    user = db.relationship(
+        "User",
+        backref="activity_logs"
+    )
+
+    def __repr__(self):
+        return f"<ActivityLog {self.action} {self.entity_type}>"
 
 
 # ================= LOGIN MANAGER =================

@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="top-bar">
+    <h2 class="section-title">
+        Activity Log
+    </h2>
+</div>
+
+<div class="table-header">
+    <p class="muted">
+        Recent user activities
+    </p>
+</div>
+
+<table class="task-table">
+    <thead>
+        <tr>
+            <th>Action</th>
+            <th>Entity Type</th>
+            <th>Entity Name</th>
+            <th>Timestamp</th>
+        </tr>
+    </thead>
+
+    <tbody id="activity-body">
+        <tr>
+            <td colspan="4">
+                Loading activities...
+            </td>
+        </tr>
+    </tbody>
+</table>
+
+<script>
+async function loadActivities() {
+
+    try {
+
+        const response = await fetch('/api/activity-log', {
+            credentials: 'include'
+        });
+
+        const logs = await response.json();
+
+        const tbody = document.getElementById('activity-body');
+
+        if (!logs.length) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="4">
+                        No activity found
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = '';
+
+        logs.forEach(log => {
+
+            tbody.innerHTML += `
+                <tr>
+                    <td>${log.action}</td>
+                    <td>${log.entity_type}</td>
+                    <td>${log.entity_name}</td>
+                    <td>${log.timestamp}</td>
+                </tr>
+            `;
+        });
+
+    } catch (error) {
+
+        document.getElementById('activity-body').innerHTML = `
+            <tr>
+                <td colspan="4">
+                    Failed to load activity log
+                </td>
+            </tr>
+        `;
+    }
+}
+
+loadActivities();
+</script>
+
+{% endblock %}

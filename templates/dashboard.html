@@ -14,7 +14,6 @@
 
     </div>
 
-    <!-- 🔥 AUTH BUTTONS -->
     <div class="auth-buttons">
 
         {% if current_user.is_authenticated %}
@@ -45,35 +44,63 @@
 
 </div>
 
-<!-- 🔥 FILTER -->
+<!-- DASHBOARD STATS -->
+<div class="cards-grid" style="margin-bottom:20px;">
+
+    <div class="card">
+        <div class="card-head">
+            <span class="task-title">Total Tasks</span>
+        </div>
+
+        <div class="card-body">
+            <h2 id="total-tasks">0</h2>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-head">
+            <span class="task-title">Completed</span>
+        </div>
+
+        <div class="card-body">
+            <h2 id="completed-tasks">0</h2>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-head">
+            <span class="task-title">Pending</span>
+        </div>
+
+        <div class="card-body">
+            <h2 id="pending-tasks">0</h2>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-head">
+            <span class="task-title">Overdue</span>
+        </div>
+
+        <div class="card-body">
+            <h2 id="overdue-tasks">0</h2>
+        </div>
+    </div>
+
+</div>
+
+<!-- FILTER -->
 <div class="top-bar">
 
     <select id="view-filter"
             class="dropdown">
 
-        <option value="all">
-            All Tasks
-        </option>
-
-        <option value="today">
-            Today
-        </option>
-
-        <option value="week">
-            This Week
-        </option>
-
-        <option value="overdue">
-            Overdue
-        </option>
-
-        <option value="pending">
-            Pending
-        </option>
-
-        <option value="completed">
-            Completed
-        </option>
+        <option value="all">All Tasks</option>
+        <option value="today">Today</option>
+        <option value="week">This Week</option>
+        <option value="overdue">Overdue</option>
+        <option value="pending">Pending</option>
+        <option value="completed">Completed</option>
 
     </select>
 
@@ -85,8 +112,131 @@
 
 <div id="message-box"></div>
 
-<!-- 🔥 TASK CARDS -->
+<!-- TASK CARDS -->
 <div id="dashboard-cards"
      class="cards-grid"></div>
 
-{% endblock %}  
+<br><br>
+
+<!-- CATEGORY STATS -->
+<h2 class="section-title">
+    Tasks Per Category
+</h2>
+
+<table class="task-table">
+
+    <thead>
+        <tr>
+            <th>Category</th>
+            <th>Total Tasks</th>
+        </tr>
+    </thead>
+
+    <tbody id="category-stats-body">
+    </tbody>
+
+</table>
+
+<br><br>
+
+<!-- PIE CHART -->
+<h2 class="section-title">
+    Category Distribution
+</h2>
+
+<div style="max-width:500px;">
+    <canvas id="categoryChart"></canvas>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+
+async function loadDashboardStats() {
+
+    try {
+
+        const response = await fetch(
+            "/api/dashboard-stats",
+            {
+                credentials: "include"
+            }
+        );
+
+        const data = await response.json();
+
+        document.getElementById(
+            "total-tasks"
+        ).textContent = data.total_tasks;
+
+        document.getElementById(
+            "completed-tasks"
+        ).textContent = data.completed_tasks;
+
+        document.getElementById(
+            "pending-tasks"
+        ).textContent = data.pending_tasks;
+
+        document.getElementById(
+            "overdue-tasks"
+        ).textContent = data.overdue_tasks;
+
+        const tbody =
+            document.getElementById(
+                "category-stats-body"
+            );
+
+        tbody.innerHTML = "";
+
+        const labels = [];
+        const values = [];
+
+        data.categories.forEach(cat => {
+
+            labels.push(cat.name);
+
+            values.push(cat.count);
+
+            tbody.innerHTML += `
+                <tr>
+                    <td>${cat.name}</td>
+                    <td>${cat.count}</td>
+                </tr>
+            `;
+        });
+
+        const ctx =
+            document.getElementById(
+                "categoryChart"
+            );
+
+        new Chart(ctx, {
+
+            type: "pie",
+
+            data: {
+
+                labels: labels,
+
+                datasets: [
+                    {
+                        data: values
+                    }
+                ]
+            }
+        });
+
+    } catch (err) {
+
+        console.error(
+            "Dashboard Stats Error:",
+            err
+        );
+    }
+}
+
+loadDashboardStats();
+
+</script>
+
+{% endblock %}

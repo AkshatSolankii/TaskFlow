@@ -3,6 +3,12 @@
 
 <h2>Task Manager</h2>
 
+<!-- CATEGORY MANAGEMENT -->
+
+<h3 style="margin-bottom:10px;">
+    Manage Categories
+</h3>
+
 <div class="category-box">
     <input
         type="text"
@@ -10,43 +16,88 @@
         class="input-box"
         placeholder="Add category (e.g. Work, Study)"
     >
-    <button class="btn btn-blue" onclick="addCategory()">Add Category</button>
+
+    <button
+        class="btn btn-blue"
+        onclick="addCategory()">
+
+        Add Category
+    </button>
 </div>
 
+<div
+    id="category-list"
+    class="task-manager-list"
+    style="margin-bottom:25px;">
+
+</div>
+
+<hr style="margin:20px 0;">
+
+<!-- TASK FILTERS -->
+
 <div class="task-manager-header">
+
     <input
         id="task-search"
         placeholder="Filter tasks..."
         class="search-box"
     >
 
-    <select id="category-filter" class="dropdown">
-        <option value="all">All Categories</option>
+    <select
+        id="category-filter"
+        class="dropdown">
+
+        <option value="all">
+            All Categories
+        </option>
+
     </select>
+
 </div>
 
 <div id="message-box"></div>
 
-<!-- ✅ TASK LIST -->
-<div id="manager-list" class="task-manager-list"></div>
+<!-- TASK LIST -->
 
-<!-- ✅ PAGINATION (ADD THIS) -->
-<div id="pagination" style="margin-top:20px;"></div>
+<div
+    id="manager-list"
+    class="task-manager-list">
+
+</div>
+
+<!-- PAGINATION -->
+
+<div
+    id="pagination"
+    style="margin-top:20px;">
+
+</div>
 
 <script>
-    document.addEventListener("DOMContentLoaded", () => {
-        loadCategories();
-        loadTasks(1); // ✅ start from page 1
-    });
 
-    // 🔥 IMPORTANT: reload pagination on filter/search
-    document.getElementById("task-search")?.addEventListener("input", () => {
-        loadTasks(1);
-    });
+document.addEventListener("DOMContentLoaded", () => {
 
-    document.getElementById("category-filter")?.addEventListener("change", () => {
-        loadTasks(1);
-    });
+    loadCategories();
+
+    loadTasks(1);
+
+});
+
+document.getElementById("task-search")
+?.addEventListener("input", () => {
+
+    loadTasks(1);
+
+});
+
+document.getElementById("category-filter")
+?.addEventListener("change", () => {
+
+    loadTasks(1);
+
+});
+
 </script>
 
 {% endblock %}

@@ -13,11 +13,14 @@
     <h2 class="logo">TaskFlow</h2>
 
     <a href="{{ url_for('dashboard') }}" class="side-link">Dashboard</a>
-    <a href="{{ url_for('my_tasks') }}" class="side-link">My Tasks</a>
-    <a href="{{ url_for('task_manager') }}" class="side-link">Task Manager</a>
-    <a href="{{ url_for('table_page') }}" class="side-link">Task Table</a>
-    <a href="#" class="side-link disabled">Reports</a>
-    <a href="#" class="side-link disabled">Settings</a>
+<a href="{{ url_for('my_tasks') }}" class="side-link">My Tasks</a>
+<a href="{{ url_for('task_manager') }}" class="side-link">Task Manager</a>
+<a href="{{ url_for('table_page') }}" class="side-link">Task Table</a>
+<a href="{{ url_for('activity_log_page') }}" class="side-link">Activity Log</a>
+
+<a href="#" class="side-link disabled">Reports</a>
+<a href="#" class="side-link disabled">Settings</a>
+
 </div>
 
 <div class="content">
