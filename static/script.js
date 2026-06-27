@@ -48,7 +48,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
-// ================= FIXED LOAD TASKS =================
+
 function loadTasks(page = 1) {
 
     CURRENT_PAGE = page;
@@ -58,7 +58,7 @@ function loadTasks(page = 1) {
 
     let url = "/api/tasks";
 
-    // ✅ Apply pagination ONLY for non-dashboard pages
+    
     if (!isDashboard) {
 
         url += `?page=${CURRENT_PAGE}&limit=${LIMIT}&sort=${CURRENT_SORT}`;
@@ -70,7 +70,7 @@ function loadTasks(page = 1) {
 
         .then(async res => {
 
-            // 🔥 Redirect if not logged in
+            
             if (res.redirected) {
 
                 window.location.href = "/login";
@@ -78,7 +78,7 @@ function loadTasks(page = 1) {
                 return;
             }
 
-            // 🔥 Unauthorized
+            
             if (res.status === 401) {
 
                 window.location.href = "/login";
@@ -102,7 +102,7 @@ function loadTasks(page = 1) {
 
             console.log("API:", data);
 
-            // ✅ Handle both formats
+            
             if (Array.isArray(data)) {
 
                 TASKS = data;
@@ -116,7 +116,7 @@ function loadTasks(page = 1) {
                 TOTAL_PAGES = data.total_pages || 1;
             }
 
-            // ✅ Render ONLY required page
+            
             if (document.getElementById("dashboard-cards")) {
 
                 renderDashboard();
@@ -143,7 +143,7 @@ function loadTasks(page = 1) {
             );
         });
 }
-// ================= FIXED LOAD CATEGORIES =================
+
 function loadCategories() {
 
     fetch("/api/categories", {
@@ -152,7 +152,7 @@ function loadCategories() {
 
         .then(async res => {
 
-            // 🔥 Redirect if not logged in
+            
             if (res.redirected) {
 
                 window.location.href = "/login";
@@ -160,7 +160,7 @@ function loadCategories() {
                 return;
             }
 
-            // 🔥 Handle unauthorized
+           
             if (res.status === 401) {
 
                 window.location.href = "/login";
@@ -473,17 +473,17 @@ function renderDashboard() {
 
     let tasks = [...TASKS];
 
-    // 🔥 HELPER FUNCTION
+    
     function getType(t) {
         if (!t.deadline) return "normal";
 
         const now = new Date();
         const due = new Date(t.deadline);
 
-        // Overdue
+        
         if (t.status !== "completed" && due < now) return "overdue";
 
-        // Today
+        
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
@@ -492,7 +492,7 @@ function renderDashboard() {
 
         if (dueDate.getTime() === today.getTime()) return "today";
 
-        // This week
+        
         const weekEnd = new Date();
         weekEnd.setDate(weekEnd.getDate() + 7);
 
@@ -501,7 +501,7 @@ function renderDashboard() {
         return "normal";
     }
 
-    // 🔥 FILTERS
+    
     if (mode === "today") {
         tasks = tasks.filter(t => getType(t) === "today");
     }
@@ -535,7 +535,7 @@ function renderDashboard() {
 
         const type = getType(t);
 
-        // 🔥 STATUS LABEL
+       
         let statusLabel = "";
         if (type === "overdue") statusLabel = `<span class="status-badge red">Overdue</span>`;
         if (type === "today") statusLabel = `<span class="status-badge yellow">Today</span>`;
@@ -599,7 +599,7 @@ function renderTable() {
         t.title.toLowerCase().includes(search)
     );
 
-    // 🔥 CATEGORY FILTER
+   
     if (categoryId !== "all") {
 
         tasks = tasks.filter(t =>
@@ -744,7 +744,7 @@ function saveTask(e) {
     const category_id =
         document.getElementById("category")?.value || null;
 
-    // ✅ REQUIRED VALIDATION
+    
     if (!title || !deadlineInput) {
 
         return showError(
@@ -752,7 +752,7 @@ function saveTask(e) {
         );
     }
 
-    // ✅ PAST DATE VALIDATION
+    
     const selected =
         new Date(deadlineInput);
 
@@ -766,7 +766,7 @@ function saveTask(e) {
         );
     }
 
-    // ✅ CREATE TASK
+    
     fetch("/api/tasks", {
 
         method: "POST",
@@ -803,7 +803,7 @@ function saveTask(e) {
 
         .then(() => {
 
-            // 🔥 Clear edit mode
+            
             localStorage.removeItem(
                 "editingTask"
             );
@@ -858,7 +858,7 @@ function updateTask(e, id) {
     const category_id =
         document.getElementById("category")?.value || null;
 
-    // ✅ REQUIRED VALIDATION
+    
     if (!title || !deadlineInput) {
 
         return showError(
@@ -866,7 +866,7 @@ function updateTask(e, id) {
         );
     }
 
-    // ✅ PAST DATE VALIDATION
+    
     const selected = new Date(deadlineInput);
 
     const now = new Date();
@@ -878,7 +878,7 @@ function updateTask(e, id) {
         );
     }
 
-    // ✅ UPDATE API
+    
     fetch(`/api/tasks/${id}`, {
 
         method: "PATCH",
@@ -917,7 +917,7 @@ function updateTask(e, id) {
 
         .then(() => {
 
-            // 🔥 CLEAR EDIT MODE
+           
             localStorage.removeItem(
                 "editingTask"
             );
@@ -950,13 +950,13 @@ function goEdit(id) {
         return showError("Task not found.");
     }
 
-    // 🔥 Save task temporarily
+    
     localStorage.setItem(
         "editingTask",
         JSON.stringify(task)
     );
 
-    // 🔥 Open existing add page
+    
     window.location.href = "/add";
 }
 
@@ -1041,13 +1041,13 @@ function renderMyTasks() {
 window.changeSort = function (value) {
     console.log("Sorting by:", value);
 
-    // ✅ store selected sort
+    
     CURRENT_SORT = value;
 
-    // ✅ reset to first page
+    
     CURRENT_PAGE = 1;
 
-    // ✅ reload data from backend with sorting
+    
     loadTasks(1);
 };
 
@@ -1055,7 +1055,7 @@ function renderPagination() {
     const container = document.getElementById("pagination");
     if (!container) return;
 
-    // 🔥 HIDE pagination if only 1 page
+    
     if (TOTAL_PAGES <= 1) {
         container.innerHTML = "";
         return;
@@ -1107,7 +1107,7 @@ function getTaskStatusType(task) {
         return "today";
     }
 
-    // this week
+    
     const weekEnd = new Date();
     weekEnd.setDate(weekEnd.getDate() + 7);
 
@@ -1119,7 +1119,7 @@ function getTaskStatusType(task) {
 }
 
 
-// ================= LOGIN =================
+
 async function loginUser() {
 
     const email =
@@ -1130,7 +1130,7 @@ async function loginUser() {
         document.getElementById("login-password")
             .value.trim();
 
-    // ✅ EMPTY VALIDATION
+    
     if (!email || !password) {
 
         return showError(
@@ -1138,7 +1138,7 @@ async function loginUser() {
         );
     }
 
-    // ✅ EMAIL VALIDATION
+    
     const emailPattern =
         /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -1149,7 +1149,7 @@ async function loginUser() {
         );
     }
 
-    // ✅ PASSWORD LENGTH
+    
     if (password.length < 6) {
 
         return showError(
@@ -1205,7 +1205,7 @@ async function loginUser() {
     }
 }
 
-// ================= REGISTER =================
+
 async function registerUser() {
 
     const username =
@@ -1220,7 +1220,7 @@ async function registerUser() {
         document.getElementById("register-password")
             .value.trim();
 
-    // ✅ EMPTY VALIDATION
+   
     if (!username || !email || !password) {
 
         return showError(
@@ -1228,7 +1228,7 @@ async function registerUser() {
         );
     }
 
-    // ✅ EMAIL VALIDATION
+    
     const emailPattern =
         /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -1239,7 +1239,7 @@ async function registerUser() {
         );
     }
 
-    // ✅ PASSWORD LENGTH
+    
     if (password.length < 6) {
 
         return showError(
@@ -1247,7 +1247,7 @@ async function registerUser() {
         );
     }
 
-    // ✅ STRONG PASSWORD
+    
     const strongPassword =
         /^(?=.*[A-Za-z])(?=.*\d).+$/;
 
@@ -1305,7 +1305,7 @@ async function registerUser() {
 }
 
 
-// ================= LOGOUT =================
+
 async function logoutUser() {
     const res = await fetch("/api/logout", {
         credentials: "include"
@@ -1322,7 +1322,7 @@ document.addEventListener("DOMContentLoaded", () => {
         loadCategories();
     }
 
-    // ================= ADD BUTTON =================
+   
 
     const addBtn = document.getElementById("open-add");
 
@@ -1330,12 +1330,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
         addBtn.addEventListener("click", () => {
 
-            // 🔥 Clear old edit task
+            
             localStorage.removeItem(
                 "editingTask"
             );
 
-            // 🔥 Open add page
+            
             window.location.href = "/add";
         });
     }
@@ -1389,7 +1389,7 @@ document.addEventListener("DOMContentLoaded", () => {
         );
     }
 
-    // ================= EDIT MODE =================
+   
 
     const editingTask =
         localStorage.getItem("editingTask");
@@ -1397,7 +1397,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const form =
         document.getElementById("task-form");
 
-    // 🔥 EDIT TASK
+    
     if (editingTask && form) {
 
         const task =
@@ -1449,7 +1449,7 @@ document.addEventListener("DOMContentLoaded", () => {
         };
     }
 
-    // 🔥 CREATE TASK
+    
     else if (form) {
 
         form.onsubmit = function (e) {
