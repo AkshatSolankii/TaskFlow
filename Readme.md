@@ -23,4 +23,52 @@ python app.py
 You should see an output similar to:
 Running on http://127.0.0.1:5000
 
+<!-- Docker Setup Process -->
+Step 1:-
+Install Docker Desktop
+Download from: https://www.docker.com/products/docker-desktop/
+After installation:
+Open Docker Desktop
+Wait until Docker Engine is running
 
+Step 2:- 
+Verify Docker Installation
+Open terminal or PowerShell and run:
+```bash
+docker --version
+```
+You should see output similar to:
+```plaintext
+Docker version 28.x.x
+```
+
+Step 3 — Build and Run the Application
+Run the following command inside the project folder:
+```bash
+docker compose up --build
+```
+This command will:
+- Build the Docker image
+- Install project dependencies
+- Start the Flask application container
+
+
+Step 4 — Access the Application
+Open browser and visit:
+```plaintext
+http://localhost:5000
+```
+
+
+Step 5 — Stop the Application
+Press:
+```plaintext
+CTRL + C
+```
+inside the terminal.
+
+Step 6 — Restart Application Later
+To start the application again:
+```bash
+docker compose up
+```

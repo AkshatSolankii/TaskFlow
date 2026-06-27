@@ -1,123 +1,107 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for
-from models import db, Task
+from flask import Flask, render_template
 import os
+
+# MODELS
+from models import db
+
+# EXTENSIONS
+from extensions import bcrypt, login_manager
+
+# ROUTES
+from routes import task_bp
+
+# NEW AUTH IMPORT
+from auth import auth_bp
 
 app = Flask(__name__)
 
+# ------------------ CONFIG ------------------
+
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+
 DB_PATH = os.path.join(BASE_DIR, "tasks.db")
 
 app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{DB_PATH}"
+
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
+app.config["SECRET_KEY"] = "super-secret-key"
+
+# ------------------ INIT EXTENSIONS ------------------
+
 db.init_app(app)
+
+bcrypt.init_app(app)
+
+login_manager.init_app(app)
+
+# 🔥 LOGIN PAGE
+login_manager.login_view = None
+
+
+@login_manager.unauthorized_handler
+def unauthorized():
+    return {"error": "Unauthorized"}, 401
+
+
+# ------------------ REGISTER BLUEPRINTS ------------------
+
+app.register_blueprint(task_bp, url_prefix="/api")
+
+# NEW
+app.register_blueprint(auth_bp, url_prefix="/api")
+
+# ------------------ CREATE DATABASE ------------------
 
 with app.app_context():
     db.create_all()
 
+# ------------------ PAGES ------------------
+
 
 @app.route("/")
 def dashboard():
-    """Main dashboard – JS will load tasks and render cards."""
     return render_template("dashboard.html")
 
-@app.route("/table")
-def table_page():
-    """Table view page."""
-    return render_template("all_tasks_table.html")
-
-@app.route("/task-manager")
-def task_manager():
-    """Task manager list view."""
-    return render_template("task_manager.html")
-
-@app.route("/tasks")
-def tasks_page():
-    """
-    Simple server-side 'My Tasks' page (uses my_tasks.html).
-    Sidebar link 'My Tasks' will go here.
-    """
-    tasks = Task.query.order_by(Task.deadline.asc().nulls_last()).all()
-    return render_template("my_tasks.html", tasks=tasks)
 
 @app.route("/add")
 def add_page():
-    """Add task form."""
     return render_template("add_task.html")
 
-@app.route("/edit/<int:task_id>")
-def edit_page(task_id):
-    """Edit task form."""
-    task = Task.query.get_or_404(task_id)
-    return render_template("edit_task.html", task=task)
+
+@app.route("/task-manager")
+def task_manager():
+    return render_template("task_manager.html")
 
 
-@app.route("/api/tasks", methods=["GET"])
-def api_get_tasks():
-    """Return all tasks as JSON for dashboard/table/manager."""
-    tasks = Task.query.order_by(Task.created_at.desc()).all()
-    return jsonify([t.to_dict() for t in tasks]), 200
+@app.route("/table")
+def table_page():
+    return render_template("all_tasks_table.html")
 
-@app.route("/api/tasks", methods=["POST"])
-def api_create_task():
-    """Create a new task."""
-    data = request.get_json() or {}
 
-    title = (data.get("title") or "").strip()
-    deadline = (data.get("deadline") or "").strip()
-    description = (data.get("description") or "").strip()
-    priority = data.get("priority") or "Medium"
+@app.route("/tasks")
+def my_tasks():
+    return render_template("my_tasks.html")
 
-    if not title or not deadline:
-        return jsonify({"error": "Title and Deadline are required."}), 400
 
-    new_task = Task(
-        title=title,
-        description=description,
-        deadline=deadline,
-        priority=priority,
-        status="pending"
-    )
-    db.session.add(new_task)
-    db.session.commit()
+# ================= ACTIVITY LOG PAGE =================
 
-    return jsonify(new_task.to_dict()), 201
+@app.route("/activity-log")
+def activity_log_page():
+    return render_template("activity_log.html")
 
-@app.route("/api/tasks/<int:task_id>", methods=["PATCH"])
-def api_update_task(task_id):
-    """Update an existing task (edit page)."""
-    task = Task.query.get_or_404(task_id)
-    data = request.get_json() or {}
 
-    title = data.get("title")
-    deadline = data.get("deadline")
+@app.route("/login")
+def login_page():
+    return render_template("login.html")
 
-    if title is not None:
-        task.title = title.strip()
-    if deadline is not None:
-        task.deadline = deadline.strip()
 
-    if "description" in data:
-        task.description = (data.get("description") or "").strip()
-    if "priority" in data:
-        task.priority = data.get("priority") or task.priority
-    if "status" in data:
-        task.status = data.get("status") or task.status
+@app.route("/register")
+def register_page():
+    return render_template("register.html")
 
-    
-    if not task.title or not task.deadline:
-        return jsonify({"error": "Title and Deadline cannot be empty."}), 400
 
-    db.session.commit()
-    return jsonify(task.to_dict()), 200
-
-@app.route("/api/tasks/<int:task_id>", methods=["DELETE"])
-def api_delete_task(task_id):
-    """Delete a task."""
-    task = Task.query.get_or_404(task_id)
-    db.session.delete(task)
-    db.session.commit()
-    return jsonify({"message": "deleted"}), 200
+# ------------------ RUN ------------------
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)

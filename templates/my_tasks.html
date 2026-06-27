@@ -5,54 +5,23 @@
 
 <div id="message-box"></div>
 
-<div id="my-tasks-wrapper" class="task-list">
-    <!-- JS will inject updated tasks here -->
+<!-- 🔽 SORTING -->
+<div class="sort-container">
+    <label>Sort By:</label>
+    <select onchange="changeSort(this.value)" class="sort-dropdown">
+        <option value="created">Created</option>
+        <option value="deadline">Deadline</option>
+        <option value="priority">Priority</option>
+    </select>
 </div>
 
-<script>
-    document.addEventListener("DOMContentLoaded", () => {
-        loadTasks();           // fetch tasks
-        setTimeout(renderMyTasks, 300);  // render with checkbox
-    });
+<!-- ✅ TASK LIST -->
+<div id="manager-list" class="task-list"></div>
 
-    /* Render My Tasks with Checkbox */
-    function renderMyTasks() {
-        const wrapper = document.getElementById("my-tasks-wrapper");
-        if (!wrapper) return;
+<!-- ❌ REMOVE this (duplicate) -->
+<!-- <div id="my-tasks-wrapper"></div> -->
 
-        wrapper.innerHTML = "";
-
-        if (!TASKS || TASKS.length === 0) {
-            wrapper.innerHTML = `<p class="muted">No tasks yet.</p>`;
-            return;
-        }
-
-        TASKS.forEach(t => {
-            const div = document.createElement("div");
-            div.className = "task-item";
-
-            div.innerHTML = `
-                <div style="display:flex; align-items:center; gap:6px;">
-                    <input type="checkbox"
-                        onclick="toggleStatus(${t.id}, this.checked)"
-                        ${t.status === "completed" ? "checked" : ""}
-                        style="transform:scale(1.2); cursor:pointer;">
-
-                    <span class="priority-dot ${t.priority.toLowerCase()}"></span>
-
-                    <b>${escapeHtml(t.title)}</b>
-
-                    ${t.deadline ? `<span class="muted"> (Due: ${escapeHtml(t.deadline)})</span>` : ""}
-                </div>
-
-                <div class="actions">
-                    <a href="/edit/${t.id}">✏️</a>
-                </div>
-            `;
-
-            wrapper.appendChild(div);
-        });
-    }
-</script>
+<!-- ✅ PAGINATION -->
+<div id="pagination" style="margin-top:20px;"></div>
 
 {% endblock %}

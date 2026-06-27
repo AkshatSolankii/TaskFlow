@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h3>Categories</h3>
+
+<form method="post">
+    <input name="name" placeholder="Category name" required>
+    <button>Add</button>
+</form>
+
+<ul>
+{% for cat in categories %}
+    <li>{{ cat.name }}</li>
+{% endfor %}
+</ul>
+
+{% endblock %}

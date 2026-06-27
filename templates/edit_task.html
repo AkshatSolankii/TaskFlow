@@ -1,3 +1,4 @@
+
 {% extends "base.html" %}
 {% block content %}
 
@@ -12,8 +13,17 @@
     <label for="description">Description</label>
     <textarea id="description" class="input-box" rows="3">{{ task.description }}</textarea>
 
+    <select id="category" class="input-box">
+    <option value="">Uncategorized</option>
+    </select>
+
+
     <label for="deadline">Deadline *</label>
-    <input type="date" id="deadline" class="input-box" value="{{ task.deadline }}">
+    <input 
+    type="datetime-local" 
+    id="deadline" 
+    class="input-box" 
+     value="{{ task.deadline.replace(' ', 'T')[:16] if task.deadline else '' }}">
 
     <label for="priority">Priority</label>
     <select id="priority" class="input-box">
@@ -30,5 +40,5 @@
 
     <button class="btn btn-blue full-width" type="submit">Update Task</button>
 </form>
-<script src="/static/js/utils.js"></script>
+
 {% endblock %}

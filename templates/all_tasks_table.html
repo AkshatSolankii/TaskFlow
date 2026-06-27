@@ -1,4 +1,3 @@
-
 {% extends "base.html" %}
 {% block content %}
 
@@ -14,17 +13,32 @@
 <table class="task-table">
     <thead>
         <tr>
-            <th>Task Name</th>
-            <th>Due Date</th>
-            <th>Priority</th>
-            <th>Status</th>
-            <th class="col-small">Edit</th>
-            <th class="col-small">Delete</th>
+            <tr>
+    <th>Task Name</th>
+    <th>Due Date</th>
+    <th>Priority</th>
+    <th>Status</th>
+    <th>Category</th>
+    <th>Edit</th>
+    <th>Delete</th>
+</tr>
         </tr>
     </thead>
-    <tbody id="task-table-body">
-       
-    </tbody>
+    <tbody id="task-table-body"></tbody>
 </table>
+
+<!-- ✅ PAGINATION -->
+<div id="pagination" style="margin-top:20px;"></div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        loadTasks(1); // ✅ start from page 1
+    });
+
+    // 🔥 reload pagination on search
+    document.getElementById("table-search")?.addEventListener("input", () => {
+        loadTasks(1);
+    });
+</script>
 
 {% endblock %}
