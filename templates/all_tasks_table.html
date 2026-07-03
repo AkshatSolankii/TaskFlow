@@ -8,20 +8,55 @@
     <button id="open-add" class="btn btn-blue">+ Add Task</button>
 </div>
 
+<!-- ✅ FILTER + EXPORT BAR -->
+<div class="export-bar">
+    <div class="filter-group">
+        <select id="filter-status" class="filter-select">
+            <option value="">All Statuses</option>
+            <option value="pending">Pending</option>
+            <option value="completed">Completed</option>
+        </select>
+
+        <select id="filter-priority" class="filter-select">
+            <option value="">All Priorities</option>
+            <option value="High">High</option>
+            <option value="Medium">Medium</option>
+            <option value="Low">Low</option>
+        </select>
+
+        <select id="filter-category" class="filter-select">
+            <option value="">All Categories</option>
+        </select>
+
+        <button id="clear-filters" class="btn btn-outline">✕ Clear</button>
+    </div>
+
+    <div class="export-buttons">
+        <span class="export-label">Export filtered:</span>
+        <button id="export-csv" class="btn btn-export btn-csv">
+            ⬇ CSV
+        </button>
+        <button id="export-xlsx" class="btn btn-export btn-xlsx">
+            ⬇ Excel
+        </button>
+    </div>
+</div>
+
+<!-- ✅ COMPLETED TASKS QUICK-EXPORT BAR -->
+
+
 <div id="message-box"></div>
 
 <table class="task-table">
     <thead>
         <tr>
-            <tr>
-    <th>Task Name</th>
-    <th>Due Date</th>
-    <th>Priority</th>
-    <th>Status</th>
-    <th>Category</th>
-    <th>Edit</th>
-    <th>Delete</th>
-</tr>
+            <th>Task Name</th>
+            <th>Due Date</th>
+            <th>Priority</th>
+            <th>Status</th>
+            <th>Category</th>
+            <th>Edit</th>
+            <th>Delete</th>
         </tr>
     </thead>
     <tbody id="task-table-body"></tbody>
@@ -30,15 +65,268 @@
 <!-- ✅ PAGINATION -->
 <div id="pagination" style="margin-top:20px;"></div>
 
+<style>
+/* ── Export / Filter bar ── */
+.export-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 14px 0 18px;
+    padding: 14px 18px;
+    background: var(--card-bg, #1e293b);
+    border: 1px solid var(--border-color, #334155);
+    border-radius: 10px;
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.filter-select {
+    padding: 7px 12px;
+    border-radius: 7px;
+    border: 1px solid var(--border-color, #334155);
+    background: var(--input-bg, #0f172a);
+    color: var(--text-color, #e2e8f0);
+    font-size: 0.85rem;
+    cursor: pointer;
+    outline: none;
+    transition: border-color .2s;
+}
+
+.filter-select:focus {
+    border-color: #2563eb;
+}
+
+.export-buttons {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.export-label {
+    font-size: 0.82rem;
+    color: var(--muted-color, #94a3b8);
+}
+
+.btn-export {
+    padding: 7px 16px;
+    border-radius: 7px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: opacity .2s, transform .1s;
+}
+
+.btn-export:active { transform: scale(.97); }
+.btn-export:hover  { opacity: .88; }
+
+.btn-csv  { background: #16a34a; color: #fff; }
+.btn-xlsx { background: #0f766e; color: #fff; }
+
+.btn-outline {
+    padding: 7px 12px;
+    border-radius: 7px;
+    font-size: 0.82rem;
+    background: transparent;
+    border: 1px solid var(--border-color, #334155);
+    color: var(--muted-color, #94a3b8);
+    cursor: pointer;
+    transition: background .2s;
+}
+.btn-outline:hover { background: var(--border-color, #334155); }
+
+/* ── Completed tasks quick-export bar ── */
+.completed-export-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 0 0 18px;
+    padding: 13px 18px;
+    background: var(--card-bg, #1e293b);
+    border: 1px solid #16a34a44;
+    border-left: 4px solid #16a34a;
+    border-radius: 10px;
+}
+
+.completed-export-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.completed-badge {
+    background: #16a34a22;
+    color: #4ade80;
+    border: 1px solid #16a34a66;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.completed-export-label {
+    font-size: 0.82rem;
+    color: var(--muted-color, #94a3b8);
+}
+
+.btn-completed-csv  { background: #15803d; color: #fff; }
+.btn-completed-xlsx { background: #0d9488; color: #fff; }
+</style>
+
 <script>
-    document.addEventListener("DOMContentLoaded", () => {
-        loadTasks(1); // ✅ start from page 1
+document.addEventListener("DOMContentLoaded", () => {
+    loadCategoriesToFilter();
+    loadTasks(1);
+
+    // ── filter listeners ──────────────────────────────
+    ["filter-status", "filter-priority", "filter-category"].forEach(id => {
+        document.getElementById(id)?.addEventListener("change", () => loadTasks(1));
     });
 
-    // 🔥 reload pagination on search
-    document.getElementById("table-search")?.addEventListener("input", () => {
+    document.getElementById("table-search")?.addEventListener("input", () => loadTasks(1));
+
+    document.getElementById("clear-filters")?.addEventListener("click", () => {
+        document.getElementById("filter-status").value   = "";
+        document.getElementById("filter-priority").value = "";
+        document.getElementById("filter-category").value = "";
+        document.getElementById("table-search").value    = "";
         loadTasks(1);
     });
+
+    // ── export buttons ────────────────────────────────
+    document.getElementById("export-csv")?.addEventListener("click", () => triggerExport("csv"));
+    document.getElementById("export-xlsx")?.addEventListener("click", () => triggerExport("xlsx"));
+
+    // ── completed tasks quick-export ──────────────────
+    document.getElementById("export-completed-csv")?.addEventListener("click",  () => triggerCompletedExport("csv"));
+    document.getElementById("export-completed-xlsx")?.addEventListener("click", () => triggerCompletedExport("xlsx"));
+});
+
+// Populate category dropdown
+async function loadCategoriesToFilter() {
+    try {
+        const res  = await fetch("/api/categories");
+        const data = await res.json();
+        const sel  = document.getElementById("filter-category");
+        data.forEach(cat => {
+            const opt = document.createElement("option");
+            opt.value       = cat.name;
+            opt.textContent = cat.name;
+            sel.appendChild(opt);
+        });
+    } catch (e) {
+        console.error("Could not load categories", e);
+    }
+}
+
+// Build query string from current filters
+function buildFilterParams() {
+    const status   = document.getElementById("filter-status")?.value   || "";
+    const priority = document.getElementById("filter-priority")?.value || "";
+    const category = document.getElementById("filter-category")?.value || "";
+    const search   = document.getElementById("table-search")?.value    || "";
+    const params   = new URLSearchParams();
+    if (status)   params.set("status",   status);
+    if (priority) params.set("priority", priority);
+    if (category) params.set("category", category);
+    if (search)   params.set("search",   search);
+    return params;
+}
+
+// Show a temporary toast message
+function showExportToast(message) {
+    const existing = document.getElementById("export-toast");
+    if (existing) existing.remove();
+
+    if (!document.getElementById("export-toast-style")) {
+        const style = document.createElement("style");
+        style.id = "export-toast-style";
+        style.textContent = `
+            @keyframes fadeInUp {
+                from { opacity:0; transform:translateX(-50%) translateY(12px); }
+                to   { opacity:1; transform:translateX(-50%) translateY(0); }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    const toast = document.createElement("div");
+    toast.id = "export-toast";
+    toast.textContent = message;
+    toast.style.cssText = `
+        position:fixed; bottom:28px; left:50%; transform:translateX(-50%);
+        background:#854d0e; border:1px solid #ca8a04; color:#fef9c3;
+        padding:12px 24px; border-radius:10px; font-size:0.88rem;
+        font-weight:600; z-index:9999; box-shadow:0 4px 20px #0008;
+        animation:fadeInUp .25s ease; white-space:nowrap;
+    `;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3500);
+}
+
+// Download export file (respects current filters; blocks if 0 rows visible)
+function triggerExport(format) {
+    const rowCount = document.querySelectorAll("#task-table-body tr").length;
+    if (rowCount === 0) {
+        showExportToast("⚠ No tasks match the current filters — nothing to export.");
+        return;
+    }
+
+    const params = buildFilterParams();
+    const url    = `/api/tasks/export/${format}?${params.toString()}`;
+    const btn    = document.getElementById(`export-${format}`);
+    const orig   = btn.textContent;
+    btn.textContent = "Exporting…";
+    btn.disabled    = true;
+
+    const a = document.createElement("a");
+    a.href = url; a.download = `tasks_export.${format}`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+
+    setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1500);
+}
+
+// Download only completed tasks (ignores current filters)
+async function triggerCompletedExport(format) {
+    try {
+        const res  = await fetch("/api/tasks?limit=1&page=1");
+        const data = await res.json();
+        // Count completed from full list via a status-filtered fetch
+        const res2  = await fetch("/api/tasks/export/csv?status=completed");
+        const text  = await res2.text();
+        // CSV has a header row; if only 1 line → 0 data rows
+        const lines = text.trim().split("\n").filter(l => l.trim() !== "");
+        if (lines.length <= 1) {
+            showExportToast("⚠ You have no completed tasks to export.");
+            return;
+        }
+    } catch (e) {
+        // If the pre-check fails, proceed anyway
+    }
+
+    const params = new URLSearchParams({ status: "completed" });
+    const url    = `/api/tasks/export/${format}?${params.toString()}`;
+    const btn    = document.getElementById(`export-completed-${format}`);
+    const orig   = btn.textContent;
+    btn.textContent = "Exporting…";
+    btn.disabled    = true;
+
+    const a = document.createElement("a");
+    a.href = url; a.download = `completed_tasks.${format}`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+
+    setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1500);
+}
 </script>
 
 {% endblock %}
