@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2 class="section-title">🛡️ Audit Log</h2>
+<p class="audit-subtitle">Login events, task creation/deletion, and permission changes across all users.</p>
+
+<div id="message-box"></div>
+
+<div class="audit-filters">
+    <select id="audit-category" class="filter-select">
+        <option value="">All Categories</option>
+        <option value="login">🔑 Login Events</option>
+        <option value="task_created">➕ Task Created</option>
+        <option value="task_deleted">🗑️ Task Deleted</option>
+        <option value="permission">🛡️ Permission Changes</option>
+    </select>
+    <input id="audit-username" class="filter-select" type="text" placeholder="Filter by username…" />
+    <button id="audit-refresh-btn" class="btn btn-blue">🔄 Refresh</button>
+</div>
+
+<table class="task-table">
+    <thead>
+        <tr>
+            <th>Timestamp</th>
+            <th>User</th>
+            <th>Category</th>
+            <th>Action</th>
+            <th>Entity</th>
+        </tr>
+    </thead>
+    <tbody id="audit-table-body">
+        <tr><td colspan="5" style="text-align:center;padding:24px;">Loading…</td></tr>
+    </tbody>
+</table>
+
+<div id="audit-pagination" style="margin-top:20px;"></div>
+
+<style>
+.audit-subtitle { color: var(--muted-color, #94a3b8); font-size: 0.88rem; margin: -8px 0 20px; }
+
+.audit-filters {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+}
+.audit-filters input {
+    padding: 7px 12px;
+    border-radius: 7px;
+    border: 1px solid var(--border-color, #334155);
+    background: var(--input-bg, #0f172a);
+    color: var(--text-color, #e2e8f0);
+    font-size: 0.85rem;
+    outline: none;
+    min-width: 200px;
+}
+
+.audit-category-pill {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+.cat-auth       { background: #1e3a5f22; color: #60a5fa; }
+.cat-task-add   { background: #16a34a22; color: #4ade80; }
+.cat-task-del   { background: #7f1d1d33; color: #f87171; }
+.cat-permission { background: #78350f33; color: #fbbf24; }
+.cat-other      { background: #33333322; color: #9ca3af; }
+</style>
+
+<script>
+let AUDIT_PAGE = 1;
+
+document.addEventListener("DOMContentLoaded", () => {
+    loadAuditLog(1);
+
+    document.getElementById("audit-category")
+        .addEventListener("change", () => loadAuditLog(1));
+
+    document.getElementById("audit-username")
+        .addEventListener("input", debounceAuditReload);
+
+    document.getElementById("audit-refresh-btn")
+        .addEventListener("click", () => loadAuditLog(AUDIT_PAGE));
+});
+
+let auditDebounceTimer = null;
+function debounceAuditReload() {
+    clearTimeout(auditDebounceTimer);
+    auditDebounceTimer = setTimeout(() => loadAuditLog(1), 350);
+}
+
+function categoryPillFor(entry) {
+    if (entry.entity_type === "Auth")  return `<span class="audit-category-pill cat-auth">🔑 Login</span>`;
+    if (entry.entity_type === "Task" && entry.action === "Created")
+        return `<span class="audit-category-pill cat-task-add">➕ Task Created</span>`;
+    if (entry.entity_type === "Task" && entry.action.includes("Deleted"))
+        return `<span class="audit-category-pill cat-task-del">🗑️ Task Deleted</span>`;
+    if (entry.entity_type === "User")
+        return `<span class="audit-category-pill cat-permission">🛡️ Permission</span>`;
+    return `<span class="audit-category-pill cat-other">${escHtml(entry.entity_type)}</span>`;
+}
+
+async function loadAuditLog(page) {
+    AUDIT_PAGE = page;
+    const tbody    = document.getElementById("audit-table-body");
+    const category = document.getElementById("audit-category").value;
+    const username  = document.getElementById("audit-username").value.trim();
+
+    const params = new URLSearchParams({ page, limit: 25 });
+    if (category) params.set("category", category);
+    if (username)  params.set("username", username);
+
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;">Loading…</td></tr>`;
+
+    try {
+        const res = await fetch(`/api/admin/audit-log?${params.toString()}`, { credentials: "include" });
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+
+        if (!data.logs.length) {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:#94a3b8;">No matching audit entries.</td></tr>`;
+            document.getElementById("audit-pagination").innerHTML = "";
+            return;
+        }
+
+        tbody.innerHTML = data.logs.map(log => `
+            <tr>
+                <td>${escHtml(log.timestamp)}</td>
+                <td>${escHtml(log.username)}</td>
+                <td>${categoryPillFor(log)}</td>
+                <td>${escHtml(log.action)}</td>
+                <td>${escHtml(log.entity_name)}</td>
+            </tr>
+        `).join("");
+
+        renderAuditPagination(data.page, data.total_pages);
+
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:#f87171;">Failed to load audit log.</td></tr>`;
+    }
+}
+
+function renderAuditPagination(page, totalPages) {
+    const container = document.getElementById("audit-pagination");
+    if (totalPages <= 1) { container.innerHTML = ""; return; }
+
+    container.innerHTML = `
+        <button onclick="loadAuditLog(${page - 1})" ${page === 1 ? "disabled" : ""}>⬅ Prev</button>
+        <span> Page ${page} of ${totalPages} </span>
+        <button onclick="loadAuditLog(${page + 1})" ${page === totalPages ? "disabled" : ""}>Next ➡</button>
+    `;
+}
+
+function escHtml(str) {
+    if (!str) return "";
+    return String(str)
+        .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+        .replace(/>/g,"&gt;").replace(/"/g,"&quot;")
+        .replace(/'/g,"&#039;");
+}
+</script>
+
+{% endblock %}

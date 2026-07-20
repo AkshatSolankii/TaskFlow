@@ -8,12 +8,16 @@
     <button id="open-add" class="btn btn-blue">+ Add Task</button>
 </div>
 
+<!-- ✅ SAVED FILTERS -->
+<div id="saved-filters-bar"></div>
+
 <!-- ✅ FILTER + EXPORT BAR -->
 <div class="export-bar">
     <div class="filter-group">
         <select id="filter-status" class="filter-select">
             <option value="">All Statuses</option>
             <option value="pending">Pending</option>
+            <option value="in_progress">In Progress</option>
             <option value="completed">Completed</option>
         </select>
 
@@ -43,7 +47,20 @@
 </div>
 
 <!-- ✅ COMPLETED TASKS QUICK-EXPORT BAR -->
-
+<div class="completed-export-bar">
+    <div class="completed-export-info">
+        <span class="completed-badge">✔ Completed Tasks</span>
+        <span class="completed-export-label">Download all completed tasks instantly</span>
+    </div>
+    <div class="export-buttons">
+        <button id="export-completed-csv" class="btn btn-export btn-completed-csv">
+            ⬇ Completed CSV
+        </button>
+        <button id="export-completed-xlsx" class="btn btn-export btn-completed-xlsx">
+            ⬇ Completed Excel
+        </button>
+    </div>
+</div>
 
 <div id="message-box"></div>
 
@@ -57,6 +74,7 @@
             <th>Category</th>
             <th>Edit</th>
             <th>Delete</th>
+            <th>Details</th>
         </tr>
     </thead>
     <tbody id="task-table-body"></tbody>
@@ -181,19 +199,66 @@
 
 .btn-completed-csv  { background: #15803d; color: #fff; }
 .btn-completed-xlsx { background: #0d9488; color: #fff; }
+
+/* ── Saved filters ── */
+.saved-filters-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 14px 0;
+}
+.saved-filter-chip {
+    display: inline-flex;
+    align-items: center;
+    background: var(--card-bg, #1e293b);
+    border: 1px solid var(--border-color, #334155);
+    border-radius: 20px;
+    overflow: hidden;
+}
+.chip-apply {
+    background: none;
+    border: none;
+    color: var(--text-color, #e2e8f0);
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+.chip-apply:hover { color: #60a5fa; }
+.chip-remove {
+    background: none;
+    border: none;
+    border-left: 1px solid var(--border-color, #334155);
+    color: #f87171;
+    padding: 6px 9px;
+    font-size: 0.75rem;
+    cursor: pointer;
+}
+.chip-remove:hover { background: #7f1d1d33; }
+.btn-save-current-filter {
+    background: none;
+    border: 1px dashed var(--border-color, #334155);
+    color: var(--muted-color, #94a3b8);
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+.btn-save-current-filter:hover { border-color: #7c3aed; color: #a78bfa; }
 </style>
 
 <script>
 document.addEventListener("DOMContentLoaded", () => {
     loadCategoriesToFilter();
     loadTasks(1);
+    loadSavedFilters();
 
     // ── filter listeners ──────────────────────────────
     ["filter-status", "filter-priority", "filter-category"].forEach(id => {
-        document.getElementById(id)?.addEventListener("change", () => loadTasks(1));
+        document.getElementById(id)?.addEventListener("change", () => renderTable());
     });
 
-    document.getElementById("table-search")?.addEventListener("input", () => loadTasks(1));
+    document.getElementById("table-search")?.addEventListener("input", () => renderTable());
 
     document.getElementById("clear-filters")?.addEventListener("click", () => {
         document.getElementById("filter-status").value   = "";
@@ -326,6 +391,116 @@ async function triggerCompletedExport(format) {
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
 
     setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1500);
+}
+
+// ═══════════════════════════════════════════
+// SAVED FILTERS
+// ═══════════════════════════════════════════
+let SAVED_FILTERS = [];
+
+async function loadSavedFilters() {
+    const bar = document.getElementById("saved-filters-bar");
+    if (!bar) return;
+
+    try {
+        const res = await fetch("/api/saved-filters", { credentials: "include" });
+        if (!res.ok) return;
+        SAVED_FILTERS = await res.json();
+        renderSavedFilters();
+    } catch (e) {
+        console.error("loadSavedFilters:", e);
+    }
+}
+
+function renderSavedFilters() {
+    const bar = document.getElementById("saved-filters-bar");
+    if (!bar) return;
+
+    const chips = SAVED_FILTERS.map(f => `
+        <span class="saved-filter-chip">
+            <button class="chip-apply" onclick="applySavedFilter(${f.id})" title="Apply filter">
+                🔖 ${escapeHtml(f.name)}
+            </button>
+            <button class="chip-remove" onclick="deleteSavedFilter(${f.id})" title="Delete">✕</button>
+        </span>
+    `).join("");
+
+    bar.innerHTML = `
+        <div class="saved-filters-row">
+            ${chips || `<span class="muted" style="font-size:.82rem;">No saved filters yet.</span>`}
+            <button class="btn-save-current-filter" onclick="saveCurrentFilter()">+ Save Current Filter</button>
+        </div>
+    `;
+}
+
+function applySavedFilter(filterId) {
+    const f = SAVED_FILTERS.find(x => x.id === filterId);
+    if (!f) return;
+
+    const search   = document.getElementById("table-search");
+    const status   = document.getElementById("filter-status");
+    const priority = document.getElementById("filter-priority");
+    const category = document.getElementById("filter-category");
+
+    if (search)   search.value   = f.filters.search   || "";
+    if (status)   status.value   = f.filters.status   || "";
+    if (priority) priority.value = f.filters.priority || "";
+    if (category) category.value = f.filters.category || "";
+
+    renderTable();
+    showSuccess(`Applied filter "${f.name}"`);
+}
+
+async function saveCurrentFilter() {
+    const search   = document.getElementById("table-search")?.value.trim()   || "";
+    const status   = document.getElementById("filter-status")?.value         || "";
+    const priority = document.getElementById("filter-priority")?.value       || "";
+    const category = document.getElementById("filter-category")?.value      || "";
+
+    if (!search && !status && !priority && !category) {
+        return showError("Set at least one filter before saving.");
+    }
+
+    const name = prompt('Name this filter (e.g. "My Overdue Tasks"):');
+    if (!name || !name.trim()) return;
+
+    try {
+        const res  = await fetch("/api/saved-filters", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                name: name.trim(),
+                filters: { search, status, priority, category }
+            })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+            showError(data.error || "Failed to save filter.");
+            return;
+        }
+
+        showSuccess(`Saved filter "${data.name}"`);
+        await loadSavedFilters();
+    } catch (e) {
+        showError("Network error while saving filter.");
+    }
+}
+
+async function deleteSavedFilter(filterId) {
+    if (!confirm("Delete this saved filter?")) return;
+
+    try {
+        const res = await fetch(`/api/saved-filters/${filterId}`, {
+            method: "DELETE", credentials: "include"
+        });
+        if (!res.ok) throw new Error();
+        showSuccess("Saved filter deleted.");
+        await loadSavedFilters();
+    } catch (e) {
+        showError("Failed to delete saved filter.");
+    }
 }
 </script>
 

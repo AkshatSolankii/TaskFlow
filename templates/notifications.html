@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2 class="section-title">🔔 Notifications</h2>
+<p class="notif-subtitle">Task invitations sent to you</p>
+
+<div id="message-box"></div>
+<div id="invitations-container"></div>
+
+<style>
+.notif-subtitle {
+    color: var(--muted-color, #94a3b8);
+    font-size: 0.88rem;
+    margin: -8px 0 24px;
+}
+
+/* ── invitation card ── */
+.inv-card {
+    background: var(--card-bg, #1e293b);
+    border: 1px solid var(--border-color, #334155);
+    border-left: 4px solid #3b82f6;
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 14px;
+    transition: border-color .2s;
+}
+.inv-card:hover { border-left-color: #60a5fa; }
+
+/* accepted / rejected states */
+.inv-card.accepted { border-left-color: #16a34a; opacity: .75; }
+.inv-card.rejected { border-left-color: #6b7280; opacity: .6;  }
+
+.inv-info { flex: 1; min-width: 200px; }
+
+.inv-task-title {
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--text-color, #e2e8f0);
+    margin-bottom: 5px;
+}
+
+.inv-meta {
+    font-size: 0.82rem;
+    color: var(--muted-color, #94a3b8);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-top: 4px;
+}
+
+.inv-role-badge {
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+.role-editor { background: #3b2a05; color: #fbbf24; }
+.role-viewer { background: #1a2a1a; color: #86efac; }
+
+.inv-actions { display: flex; gap: 10px; flex-shrink: 0; }
+
+.btn-accept {
+    background: #16a34a;
+    color: #fff;
+    border: none;
+    border-radius: 7px;
+    padding: 8px 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .2s, opacity .2s;
+}
+.btn-accept:hover    { background: #15803d; }
+.btn-accept:disabled { opacity: .5; cursor: default; }
+
+.btn-reject {
+    background: transparent;
+    color: #f87171;
+    border: 1px solid #f8717155;
+    border-radius: 7px;
+    padding: 8px 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .2s, opacity .2s;
+}
+.btn-reject:hover    { background: #7f1d1d33; }
+.btn-reject:disabled { opacity: .5; cursor: default; }
+
+.inv-status-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 5px 14px;
+    border-radius: 6px;
+}
+.status-accepted { background: #16a34a22; color: #4ade80; }
+.status-rejected { background: #33333322; color: #9ca3af; }
+
+/* empty state */
+.empty-notif {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted-color, #94a3b8);
+}
+.empty-notif .empty-icon { font-size: 3rem; margin-bottom: 12px; }
+.empty-notif p { font-size: 0.95rem; }
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded", loadInvitations);
+
+async function loadInvitations() {
+    const container = document.getElementById("invitations-container");
+    container.innerHTML = `<p style="color:#94a3b8;font-size:.88rem">Loading…</p>`;
+
+    try {
+        const res  = await fetch("/api/invitations", { credentials: "include" });
+        if (!res.ok) throw new Error("Failed");
+        const invitations = await res.json();
+
+        if (!invitations.length) {
+            container.innerHTML = `
+                <div class="empty-notif">
+                    <div class="empty-icon">🔔</div>
+                    <p>You have no pending invitations.</p>
+                </div>`;
+            return;
+        }
+
+        container.innerHTML = invitations.map(inv => buildCard(inv)).join("");
+
+    } catch (e) {
+        container.innerHTML = `<p style="color:#f87171">Failed to load invitations.</p>`;
+    }
+}
+
+function buildCard(inv) {
+    const roleClass = inv.role === "Editor" ? "role-editor" : "role-viewer";
+    return `
+        <div class="inv-card" id="inv-card-${inv.id}">
+            <div class="inv-info">
+                <div class="inv-task-title">📋 ${escHtml(inv.task_title)}</div>
+                <div class="inv-meta">
+                    <span>From: <strong>${escHtml(inv.inviter_username)}</strong></span>
+                    <span>Role: <span class="inv-role-badge ${roleClass}">${escHtml(inv.role)}</span></span>
+                    <span>Sent: ${escHtml(inv.created_at)}</span>
+                </div>
+            </div>
+            <div class="inv-actions">
+                <button class="btn-accept" onclick="respondToInvitation(${inv.id}, 'accept')">
+                    ✓ Accept
+                </button>
+                <button class="btn-reject" onclick="respondToInvitation(${inv.id}, 'reject')">
+                    ✕ Decline
+                </button>
+            </div>
+        </div>`;
+}
+
+async function respondToInvitation(invId, action) {
+    const card       = document.getElementById(`inv-card-${invId}`);
+    const acceptBtn  = card.querySelector(".btn-accept");
+    const rejectBtn  = card.querySelector(".btn-reject");
+
+    acceptBtn.disabled = true;
+    rejectBtn.disabled = true;
+    acceptBtn.textContent = action === "accept" ? "Accepting…" : "✓ Accept";
+    rejectBtn.textContent = action === "reject" ? "Declining…" : "✕ Decline";
+
+    try {
+        const res  = await fetch(`/api/invitations/${invId}/${action}`, {
+            method:      "POST",
+            credentials: "include"
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+            showMsg(data.error || "Something went wrong", "error");
+            acceptBtn.disabled = false;
+            rejectBtn.disabled = false;
+            return;
+        }
+
+        if (action === "accept") {
+            // Replace actions with accepted label + Go to task button
+            card.classList.add("accepted");
+            card.querySelector(".inv-actions").innerHTML = `
+                <span class="inv-status-label status-accepted">✓ Accepted</span>
+                <a href="/tasks/${data.task_id}"
+                   style="background:#2563eb;color:#fff;border:none;border-radius:7px;
+                          padding:8px 16px;font-size:.85rem;font-weight:600;
+                          text-decoration:none;display:inline-block;">
+                   Open Task →
+                </a>`;
+            showMsg(`You joined "${data.task_title}" as a member!`, "success");
+        } else {
+            card.classList.add("rejected");
+            card.querySelector(".inv-actions").innerHTML =
+                `<span class="inv-status-label status-rejected">✕ Declined</span>`;
+            showMsg("Invitation declined.", "info");
+        }
+
+        // Refresh sidebar badge
+        refreshSidebarBadge();
+
+    } catch (e) {
+        showMsg("Network error. Please try again.", "error");
+        acceptBtn.disabled = false;
+        rejectBtn.disabled = false;
+    }
+}
+
+async function refreshSidebarBadge() {
+    try {
+        const res  = await fetch("/api/invitations/count", { credentials: "include" });
+        const data = await res.json();
+        const badge = document.getElementById("sidebar-notif-badge");
+        if (!badge) return;
+        if (data.count > 0) {
+            badge.textContent   = data.count;
+            badge.style.display = "inline-block";
+        } else {
+            badge.style.display = "none";
+        }
+    } catch { /* ignore */ }
+}
+
+function showMsg(msg, type) {
+    const box = document.getElementById("message-box");
+    if (!box) return;
+    const colors = {
+        success: "alert-success",
+        error:   "alert-error",
+        info:    "alert-success"
+    };
+    box.innerHTML = `<div class="${colors[type] || 'alert-success'}">${escHtml(msg)}</div>`;
+    setTimeout(() => { box.innerHTML = ""; }, 4000);
+}
+
+function escHtml(str) {
+    if (!str) return "";
+    return String(str)
+        .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+        .replace(/>/g,"&gt;").replace(/"/g,"&quot;")
+        .replace(/'/g,"&#039;");
+}
+</script>
+
+{% endblock %}

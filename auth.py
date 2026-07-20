@@ -2,11 +2,12 @@ from flask import Blueprint, request, jsonify
 from flask_login import (
     login_user,
     logout_user,
-    login_required
+    login_required,
+    current_user
 )
 
 from extensions import bcrypt
-from models import db, User
+from models import db, User, ActivityLog
 
 
 auth_bp = Blueprint("auth", __name__)
@@ -24,41 +25,28 @@ def register():
         }), 400
 
     username = data.get("username", "").strip()
-    email = data.get("email", "").strip()
+    email    = data.get("email",    "").strip()
     password = data.get("password", "").strip()
 
-    # VALIDATION
     if not username or not email or not password:
         return jsonify({
             "error": "All fields are required"
         }), 400
 
-    # CHECK USERNAME
-    existing_username = User.query.filter_by(
-        username=username
-    ).first()
-
-    if existing_username:
+    if User.query.filter_by(username=username).first():
         return jsonify({
             "error": "Username already exists"
         }), 400
 
-    # CHECK EMAIL
-    existing_email = User.query.filter_by(
-        email=email
-    ).first()
-
-    if existing_email:
+    if User.query.filter_by(email=email).first():
         return jsonify({
             "error": "Email already exists"
         }), 400
 
-    # HASH PASSWORD
     hashed_password = bcrypt.generate_password_hash(
         password
     ).decode("utf-8")
 
-    # CREATE USER
     new_user = User(
         username=username,
         email=email,
@@ -84,36 +72,50 @@ def login():
             "error": "No data provided"
         }), 400
 
-    email = data.get("email", "").strip()
+    email    = data.get("email",    "").strip()
     password = data.get("password", "").strip()
 
-    # FIND USER
-    user = User.query.filter_by(
-        email=email
-    ).first()
+    user = User.query.filter_by(email=email).first()
 
-    if not user:
+    if not user or not bcrypt.check_password_hash(user.password, password):
+        # AUDIT: only log the failed attempt if we found a real account —
+        # we can't attach an ActivityLog row to a user_id that doesn't exist,
+        # and there's no value in recording attempts against unknown emails.
+        if user:
+            db.session.add(ActivityLog(
+                action      = f"Failed login attempt (IP: {request.remote_addr})",
+                entity_type = "Auth",
+                entity_name = user.username,
+                user_id     = user.id
+            ))
+            db.session.commit()
+
         return jsonify({
             "error": "Invalid email or password"
         }), 401
 
-    # CHECK PASSWORD
-    valid_password = bcrypt.check_password_hash(
-        user.password,
-        password
-    )
-
-    if not valid_password:
-        return jsonify({
-            "error": "Invalid email or password"
-        }), 401
-
-    # LOGIN USER
     login_user(user)
 
+    # AUDIT: successful login
+    db.session.add(ActivityLog(
+        action      = f"Logged in (IP: {request.remote_addr})",
+        entity_type = "Auth",
+        entity_name = user.username,
+        user_id     = user.id
+    ))
+    db.session.commit()
+
+    # ── Respect the 'next' param so the user lands back on the
+    #    page they were trying to visit (e.g. /tasks/5)
+    next_page = data.get("next", "").strip()
+
+    # Safety check — only allow local paths, never external URLs
+    if not next_page or not next_page.startswith("/"):
+        next_page = "/"
+
     return jsonify({
-        "message": "Login successful",
-        "redirect": "/"
+        "message":  "Login successful",
+        "redirect": next_page
     }), 200
 
 
@@ -122,9 +124,19 @@ def login():
 @login_required
 def logout():
 
+    # AUDIT: log logout before the session is cleared, since
+    # current_user is only valid until logout_user() runs.
+    db.session.add(ActivityLog(
+        action      = "Logged out",
+        entity_type = "Auth",
+        entity_name = current_user.username,
+        user_id     = current_user.id
+    ))
+    db.session.commit()
+
     logout_user()
 
     return jsonify({
-        "message": "Logout successful",
+        "message":  "Logout successful",
         "redirect": "/login"
     }), 200
