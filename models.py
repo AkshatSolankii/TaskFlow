@@ -137,7 +137,8 @@ class Invitation(db.Model):
     id           = db.Column(db.Integer, primary_key=True)
     task_id      = db.Column(db.Integer, db.ForeignKey("tasks.id"),  nullable=False, index=True)
     inviter_id   = db.Column(db.Integer, db.ForeignKey("users.id"),  nullable=False, index=True)
-    invitee_id   = db.Column(db.Integer, db.ForeignKey("users.id"),  nullable=False, index=True)
+    invitee_id   = db.Column(db.Integer, db.ForeignKey("users.id"),  nullable=True, index=True)
+    invitee_username = db.Column(db.String(100), nullable=False, index=True)
     role         = db.Column(db.String(20), nullable=False, default="Viewer")
     status       = db.Column(db.String(20), nullable=False, default="pending", index=True)
     created_at   = db.Column(db.DateTime, default=datetime.utcnow)
@@ -156,7 +157,7 @@ class Invitation(db.Model):
             "inviter_id":       self.inviter_id,
             "inviter_username": self.inviter.username if self.inviter else "",
             "invitee_id":       self.invitee_id,
-            "invitee_username": self.invitee.username if self.invitee else "",
+            "invitee_username": self.invitee.username if self.invitee else self.invitee_username,
             "role":             self.role,
             "status":           self.status,
             "created_at":       self.created_at.strftime("%d %b %Y, %I:%M %p"),

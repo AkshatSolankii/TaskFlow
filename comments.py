@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from datetime import datetime
+from sqlalchemy import or_
 
 from models import (
     db, Task, Comment, TaskMember,
@@ -154,20 +155,21 @@ def send_invitation(task_id):
         return jsonify({"error": "Role must be Editor or Viewer"}), 400
 
     target = User.query.filter_by(username=username).first()
-    if not target:
-        return jsonify({"error": f"User '{username}' not found"}), 404
-    if target.id == current_user.id:
+    if target and target.id == current_user.id:
         return jsonify({"error": "You cannot invite yourself"}), 400
 
     # Already an active member?
-    if TaskMember.query.filter_by(task_id=task_id, user_id=target.id).first():
+    if target and TaskMember.query.filter_by(task_id=task_id, user_id=target.id).first():
         return jsonify({"error": f"'{username}' is already a member"}), 400
 
     # Already a pending invitation?
-    existing = Invitation.query.filter_by(
-        task_id=task_id,
-        invitee_id=target.id,
-        status="pending"
+    existing = Invitation.query.filter(
+        Invitation.task_id == task_id,
+        Invitation.status == "pending",
+        or_(
+            Invitation.invitee_id == (target.id if target else None),
+            Invitation.invitee_username == username,
+        )
     ).first()
     if existing:
         return jsonify({"error": f"'{username}' already has a pending invitation"}), 400
@@ -175,7 +177,8 @@ def send_invitation(task_id):
     invitation = Invitation(
         task_id    = task_id,
         inviter_id = current_user.id,
-        invitee_id = target.id,
+        invitee_id = target.id if target else None,
+        invitee_username = username,
         role       = role,
         status     = "pending"
     )
@@ -202,7 +205,13 @@ def send_invitation(task_id):
 def get_my_invitations():
     invitations = (
         Invitation.query
-        .filter_by(invitee_id=current_user.id, status="pending")
+        .filter(
+            Invitation.status == "pending",
+            or_(
+                Invitation.invitee_id == current_user.id,
+                Invitation.invitee_username == current_user.username,
+            )
+        )
         .order_by(Invitation.created_at.desc())
         .all()
     )
@@ -213,9 +222,12 @@ def get_my_invitations():
 @comments_bp.route("/invitations/count", methods=["GET"])
 @login_required
 def get_invitation_count():
-    count = Invitation.query.filter_by(
-        invitee_id=current_user.id,
-        status="pending"
+    count = Invitation.query.filter(
+        Invitation.status == "pending",
+        or_(
+            Invitation.invitee_id == current_user.id,
+            Invitation.invitee_username == current_user.username,
+        )
     ).count()
     return jsonify({"count": count}), 200
 
@@ -226,8 +238,12 @@ def get_invitation_count():
 def accept_invitation(inv_id):
     invitation = Invitation.query.filter_by(
         id=inv_id,
-        invitee_id=current_user.id,
         status="pending"
+    ).filter(
+        or_(
+            Invitation.invitee_id == current_user.id,
+            Invitation.invitee_username == current_user.username,
+        )
     ).first()
 
     if not invitation:
@@ -267,8 +283,12 @@ def accept_invitation(inv_id):
 def reject_invitation(inv_id):
     invitation = Invitation.query.filter_by(
         id=inv_id,
-        invitee_id=current_user.id,
         status="pending"
+    ).filter(
+        or_(
+            Invitation.invitee_id == current_user.id,
+            Invitation.invitee_username == current_user.username,
+        )
     ).first()
 
     if not invitation:
