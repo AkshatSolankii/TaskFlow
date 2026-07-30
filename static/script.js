@@ -186,10 +186,15 @@ function addCategory() {
 
     fetch("/api/categories", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name })
     })
-        .then(res => { if (!res.ok) throw new Error("Failed"); return res.json(); })
+        .then(async res => {
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || "Failed to add category");
+            return data;
+        })
         .then(() => { showSuccess("Category added successfully"); input.value = ""; loadCategories(); })
         .catch(err => showError(err.message || "Failed to add category"));
 }

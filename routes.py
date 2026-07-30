@@ -39,10 +39,8 @@ def _build_export_query():
     if category_id:
         query = query.filter(Task.category_id == category_id)
     elif category_name:
-        cat_query = Category.query.filter(Category.name.ilike(category_name))
-        if not current_user.can_manage_all_tasks():
-            cat_query = cat_query.filter(Category.user_id == current_user.id)
-        category = cat_query.first()
+        # Categories are global now, so no per-user scoping when looking one up by name.
+        category = Category.query.filter(Category.name.ilike(category_name)).first()
         cat_id = category.id if category else -1
         query = query.filter(Task.category_id == cat_id)
 
@@ -76,12 +74,6 @@ def _can_modify_task(task):
     if current_user.can_manage_all_tasks():
         return True
     return task.user_id == current_user.id
-
-
-def _can_modify_category(category):
-    if current_user.can_manage_all_tasks():
-        return True
-    return category.user_id == current_user.id
 
 
 # ================= CREATE TASK =================
@@ -395,14 +387,14 @@ def bulk_update_category():
     ids         = data.get('ids', [])
     category_id = data.get('category_id')
 
+    # Validate task ids FIRST — no point checking the category
+    # if the request doesn't even name any tasks to update.
     if not isinstance(ids, list) or not ids:
         return jsonify({"error": "No task ids provided"}), 400
 
     if category_id:
-        cat_query = Category.query.filter_by(id=category_id)
-        if not current_user.can_manage_all_tasks():
-            cat_query = cat_query.filter_by(user_id=current_user.id)
-        category = cat_query.first()
+        # Categories are global now — just confirm it exists.
+        category = Category.query.filter_by(id=category_id).first()
         if not category:
             return jsonify({"error": "Category not found"}), 404
 
@@ -464,9 +456,13 @@ def bulk_delete_tasks():
 
 
 # ================= CREATE CATEGORY =================
+# Categories are now GLOBAL (shared across every user), not per-user.
+# Only Admin/Manager may create, rename, or delete a category.
 @task_bp.route('/categories', methods=['POST'])
 @login_required
 def create_category():
+    if not current_user.can_manage_all_tasks():
+        return jsonify({"error": "Only Admins and Managers can create categories"}), 403
 
     data = request.get_json()
     name = data.get("name", "").strip()
@@ -474,7 +470,7 @@ def create_category():
     if not name:
         return jsonify({"error": "Category name required"}), 400
 
-    existing = Category.query.filter_by(name=name, user_id=current_user.id).first()
+    existing = Category.query.filter_by(name=name).first()  # global uniqueness now
     if existing:
         return jsonify({"error": "Category already exists"}), 400
 
@@ -494,11 +490,10 @@ def create_category():
 @task_bp.route('/categories', methods=['GET'])
 @login_required
 def get_categories():
-    # RBAC: Admin/Manager see every user's categories; User sees only their own.
-    if current_user.can_manage_all_tasks():
-        categories = Category.query.all()
-    else:
-        categories = Category.query.filter_by(user_id=current_user.id).all()
+    # Categories are global now — every role can VIEW all categories
+    # (to assign them to tasks), even though only Admin/Manager can
+    # create/edit/delete them.
+    categories = Category.query.all()
     return jsonify([{"id": c.id, "name": c.name} for c in categories])
 
 
@@ -506,9 +501,11 @@ def get_categories():
 @task_bp.route('/categories/<int:id>', methods=['PATCH'])
 @login_required
 def update_category(id):
+    if not current_user.can_manage_all_tasks():
+        return jsonify({"error": "Only Admins and Managers can edit categories"}), 403
 
     category = Category.query.get(id)
-    if not category or not _can_modify_category(category):
+    if not category:
         return jsonify({"error": "Category not found"}), 404
 
     data     = request.get_json()
@@ -530,15 +527,16 @@ def update_category(id):
 @task_bp.route('/categories/<int:id>', methods=['DELETE'])
 @login_required
 def delete_category(id):
+    if not current_user.can_manage_all_tasks():
+        return jsonify({"error": "Only Admins and Managers can delete categories"}), 403
 
     category = Category.query.get(id)
-    if not category or not _can_modify_category(category):
+    if not category:
         return jsonify({"error": "Category not found"}), 404
 
     category_name = category.name
-    owner_id      = category.user_id
 
-    tasks = Task.query.filter_by(category_id=id, user_id=owner_id).all()
+    tasks = Task.query.filter_by(category_id=id).all()  # any task using it, any owner
     for task in tasks:
         task.category_id = None
 
@@ -581,7 +579,6 @@ def dashboard_stats():
 
     # RBAC: Admin/Manager see stats across ALL users; User sees only their own.
     base_task_filter = [] if current_user.can_manage_all_tasks() else [Task.user_id == current_user.id]
-    base_cat_filter  = [] if current_user.can_manage_all_tasks() else [Category.user_id == current_user.id]
 
     status_counts = dict(
         db.session.query(Task.status, func.count(Task.id))
@@ -608,13 +605,21 @@ def dashboard_stats():
         except Exception:
             pass
 
+    # Categories are global now. For a User (non-manager), we still only want
+    # to count *their own* tasks per category, so the join condition itself
+    # carries the RBAC filter; for Admin/Manager it's a plain outerjoin.
+    if base_task_filter:
+        join_condition = (Task.category_id == Category.id) & (Task.user_id == current_user.id)
+    else:
+        join_condition = Task.category_id == Category.id
+
     category_rows = (
         db.session.query(Category.id, Category.name, func.count(Task.id))
-        .outerjoin(Task, Task.category_id == Category.id)
-        .filter(*base_cat_filter)
+        .outerjoin(Task, join_condition)
         .group_by(Category.id, Category.name)
         .all()
     )
+
     category_stats = [
         {"name": name, "count": count} for (_, name, count) in category_rows
     ]
