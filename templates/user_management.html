@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="top-bar">
+    <h1 class="section-title">User Management</h1>
+</div>
+
+<div id="message-box"></div>
+
+<table class="task-table" id="users-table">
+    <thead>
+        <tr>
+            <th>Username</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th class="col-small">Action</th>
+        </tr>
+    </thead>
+    <tbody id="users-tbody">
+        <!-- rows injected by JS -->
+    </tbody>
+</table>
+
+<script>
+(function () {
+    const tbody      = document.getElementById("users-tbody");
+    const messageBox = document.getElementById("message-box");
+    const CURRENT_USER_ID = {{ current_user.id }};
+    const ROLES = ["Admin", "Manager", "User"];
+
+    function showMessage(text, type) {
+        messageBox.innerHTML = `<div class="alert-${type}">${text}</div>`;
+        setTimeout(() => { messageBox.innerHTML = ""; }, 3500);
+    }
+
+    function rowHtml(user) {
+        const optionsHtml = ROLES.map(r =>
+            `<option value="${r}" ${r === user.role ? "selected" : ""}>${r}</option>`
+        ).join("");
+
+        // Admins can't demote themselves from this screen — matches the
+        // backend rule in /api/admin/users/<id>/role.
+        const disabled = user.id === CURRENT_USER_ID ? "disabled" : "";
+
+        return `
+            <tr data-user-id="${user.id}">
+                <td>${user.username}</td>
+                <td>${user.email}</td>
+                <td>
+                    <select class="dropdown role-select" ${disabled}>
+                        ${optionsHtml}
+                    </select>
+                </td>
+                <td class="col-small">
+                    <button class="btn btn-blue save-role-btn" ${disabled}>Save</button>
+                </td>
+            </tr>
+        `;
+    }
+
+    async function loadUsers() {
+        try {
+            const res = await fetch("/api/admin/users", { credentials: "include" });
+            if (!res.ok) {
+                showMessage("You don't have permission to view this page.", "error");
+                return;
+            }
+            const users = await res.json();
+            tbody.innerHTML = users.map(rowHtml).join("");
+        } catch (err) {
+            showMessage("Couldn't load users. Please try again.", "error");
+        }
+    }
+
+    tbody.addEventListener("click", async (e) => {
+        if (!e.target.classList.contains("save-role-btn")) return;
+
+        const row       = e.target.closest("tr");
+        const userId    = row.dataset.userId;
+        const newRole   = row.querySelector(".role-select").value;
+
+        try {
+            const res = await fetch(`/api/admin/users/${userId}/role`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({ role: newRole })
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                showMessage(data.error || "Couldn't update role.", "error");
+                return;
+            }
+
+            showMessage(`Role updated to ${newRole}.`, "success");
+        } catch (err) {
+            showMessage("Couldn't update role. Please try again.", "error");
+        }
+    });
+
+    loadUsers();
+})();
+</script>
+
+{% endblock %}

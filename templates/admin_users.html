@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2 class="section-title">👥 User & Role Management</h2>
+<p class="admin-subtitle">Promote or demote users. Changes take effect immediately.</p>
+
+<div id="message-box"></div>
+
+<table class="task-table">
+    <thead>
+        <tr>
+            <th>Username</th>
+            <th>Email</th>
+            <th>Current Role</th>
+            <th>Change Role</th>
+        </tr>
+    </thead>
+    <tbody id="admin-users-body">
+        <tr><td colspan="4" style="text-align:center;padding:24px;">Loading…</td></tr>
+    </tbody>
+</table>
+
+<style>
+.admin-subtitle { color: var(--muted-color, #94a3b8); font-size: 0.88rem; margin: -8px 0 20px; }
+.role-select-admin {
+    background: var(--input-bg, #0f172a);
+    border: 1px solid var(--border-color, #334155);
+    border-radius: 7px;
+    color: var(--text-color, #e2e8f0);
+    padding: 6px 10px;
+    font-size: 0.83rem;
+    cursor: pointer;
+}
+.role-badge-admin {
+    padding: 3px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+.role-Admin   { background:#7f1d1d33; color:#f87171; }
+.role-Manager { background:#78350f33; color:#fbbf24; }
+.role-User    { background:#1a2a1a; color:#86efac; }
+</style>
+
+<script>
+let ADMIN_USERS = [];
+
+document.addEventListener("DOMContentLoaded", loadAdminUsers);
+
+async function loadAdminUsers() {
+    const tbody = document.getElementById("admin-users-body");
+    try {
+        const res = await fetch("/api/admin/users", { credentials: "include" });
+        if (!res.ok) throw new Error();
+        ADMIN_USERS = await res.json();
+        renderAdminUsers();
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:24px;color:#f87171;">Failed to load users.</td></tr>`;
+    }
+}
+
+function renderAdminUsers() {
+    const tbody = document.getElementById("admin-users-body");
+    tbody.innerHTML = ADMIN_USERS.map(u => `
+        <tr>
+            <td>${escHtml(u.username)}</td>
+            <td>${escHtml(u.email)}</td>
+            <td><span class="role-badge-admin role-${u.role}">${u.role}</span></td>
+            <td>
+                <select class="role-select-admin" onchange="changeRole(${u.id}, this.value)">
+                    <option value="User"    ${u.role === "User"    ? "selected" : ""}>User</option>
+                    <option value="Manager" ${u.role === "Manager" ? "selected" : ""}>Manager</option>
+                    <option value="Admin"   ${u.role === "Admin"   ? "selected" : ""}>Admin</option>
+                </select>
+            </td>
+        </tr>
+    `).join("");
+}
+
+async function changeRole(userId, newRole) {
+    try {
+        const res  = await fetch(`/api/admin/users/${userId}/role`, {
+            method: "PATCH",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ role: newRole })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+            showError(data.error || "Failed to update role.");
+            await loadAdminUsers();  // revert dropdown to actual state
+            return;
+        }
+
+        showSuccess(`Updated role to ${newRole}.`);
+        await loadAdminUsers();
+    } catch (e) {
+        showError("Network error.");
+        await loadAdminUsers();
+    }
+}
+
+function showSuccess(msg) {
+    const box = document.getElementById("message-box");
+    if (box) box.innerHTML = `<div class="alert-success">${escHtml(msg)}</div>`;
+}
+function showError(msg) {
+    const box = document.getElementById("message-box");
+    if (box) box.innerHTML = `<div class="alert-error">${escHtml(msg)}</div>`;
+}
+function escHtml(str) {
+    if (!str) return "";
+    return String(str)
+        .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+        .replace(/>/g,"&gt;").replace(/"/g,"&quot;")
+        .replace(/'/g,"&#039;");
+}
+</script>
+
+{% endblock %}
