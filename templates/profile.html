@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="profile-card">
+    <h2>👤 My Profile</h2>
+
+    <div class="profile-info">
+        <p><strong>Username:</strong> {{ current_user.username }}</p>
+        <p><strong>User ID:</strong> {{ current_user.id }}</p>
+    </div>
+
+    <hr>
+
+    <!-- 🔐 CHANGE PASSWORD -->
+    <h3>Change Password</h3>
+
+    <form id="change-password-form">
+        <input type="password" id="old-password" placeholder="Old Password" required>
+        <input type="password" id="new-password" placeholder="New Password" required>
+
+        <button type="submit">Update Password</button>
+    </form>
+
+    <div id="profile-message"></div>
+</div>
+
+<script>
+document.getElementById("change-password-form").onsubmit = async (e) => {
+    e.preventDefault();
+
+    const res = await fetch("/change-password", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({
+            old_password: document.getElementById("old-password").value,
+            new_password: document.getElementById("new-password").value
+        })
+    });
+
+    const data = await res.json();
+
+    document.getElementById("profile-message").innerText =
+        data.message || data.error;
+};
+</script>
+
+{% endblock %}

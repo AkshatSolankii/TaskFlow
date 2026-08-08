@@ -1,32 +1,150 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TaskFlow</title>
+
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
-<div class="sidebar">
-    <h2 class="logo">TaskFlow</h2>
+    <!-- ================= Sidebar ================= -->
+    <div class="sidebar">
 
-    <a href="{{ url_for('dashboard') }}" class="side-link">Dashboard</a>
-<a href="{{ url_for('my_tasks') }}" class="side-link">My Tasks</a>
-<a href="{{ url_for('task_manager') }}" class="side-link">Task Manager</a>
-<a href="{{ url_for('table_page') }}" class="side-link">Task Table</a>
-<a href="{{ url_for('activity_log_page') }}" class="side-link">Activity Log</a>
+        <h2 class="logo">TaskFlow</h2>
 
-<a href="#" class="side-link disabled">Reports</a>
-<a href="#" class="side-link disabled">Settings</a>
+        <a href="{{ url_for('dashboard') }}" class="side-link">
+            Dashboard
+        </a>
 
-</div>
+        <a href="{{ url_for('my_tasks') }}" class="side-link">
+            My Tasks
+        </a>
 
-<div class="content">
-    {% block content %}{% endblock %}
-</div>
+        <a href="{{ url_for('task_manager') }}" class="side-link">
+            Task Manager
+        </a>
 
-<script src="{{ url_for('static', filename='script.js') }}"></script>
+        <a href="{{ url_for('table_page') }}" class="side-link">
+            Task Table
+        </a>
+
+        <a href="{{ url_for('activity_log_page') }}" class="side-link">
+            Activity Log
+        </a>
+
+        <a href="{{ url_for('templates_page') }}" class="side-link">
+            📋 Templates
+        </a>
+
+        <!-- Notification -->
+        <a href="{{ url_for('notifications_page') }}" class="side-link notif-link">
+            🔔 Notifications
+            <span class="notif-badge" id="sidebar-notif-badge" style="display:none"></span>
+        </a>
+
+        <!-- Admin Only -->
+        {% if current_user.is_authenticated and current_user.role == 'Admin' %}
+        <a href="{{ url_for('user_management_page') }}" class="side-link">
+            👥 Manage Users
+        </a>
+        <a href="{{ url_for('audit_log_page') }}" class="side-link">
+            🛡️ Audit Log
+        </a>
+        {% endif %}
+
+        <a href="#" class="side-link disabled">
+            Reports
+        </a>
+
+        <a href="#" class="side-link disabled">
+            Settings
+        </a>
+
+    </div>
+
+    <!-- ================= Main Content ================= -->
+    <div class="content">
+        {% block content %}{% endblock %}
+    </div>
+
+    <style>
+        .notif-link {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .notif-badge {
+            background: #ef4444;
+            color: white;
+            font-size: 0.7rem;
+            font-weight: bold;
+            padding: 2px 7px;
+            border-radius: 20px;
+            min-width: 20px;
+            text-align: center;
+            line-height: 1.5;
+            animation: pulse-badge 2s infinite;
+        }
+
+        @keyframes pulse-badge {
+            0%,100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: .6;
+            }
+        }
+    </style>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+
+    <script>
+        (function () {
+
+            const badge = document.getElementById("sidebar-notif-badge");
+
+            if (!badge) return;
+
+            async function refreshBadge() {
+
+                try {
+
+                    const response = await fetch("/api/invitations/count", {
+                        credentials: "include"
+                    });
+
+                    if (!response.ok) return;
+
+                    const data = await response.json();
+
+                    if (data.count > 0) {
+
+                        badge.textContent = data.count;
+                        badge.style.display = "inline-block";
+
+                    } else {
+
+                        badge.style.display = "none";
+
+                    }
+
+                } catch (err) {
+
+                    console.log(err);
+
+                }
+
+            }
+
+            refreshBadge();
+
+            setInterval(refreshBadge, 30000);
+
+        })();
+    </script>
+
 </body>
 </html>

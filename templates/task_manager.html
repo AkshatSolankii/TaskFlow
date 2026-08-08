@@ -5,6 +5,7 @@
 
 <!-- CATEGORY MANAGEMENT -->
 
+{% if current_user.role in ['Admin', 'Manager'] %}
 <h3 style="margin-bottom:10px;">
     Manage Categories
 </h3>
@@ -33,6 +34,7 @@
 </div>
 
 <hr style="margin:20px 0;">
+{% endif %}
 
 <!-- TASK FILTERS -->
 
