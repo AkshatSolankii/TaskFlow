@@ -1,3 +1,9 @@
-tasks.db
-tasks.sqlite
-tasks.sqlite3
+# SQLite databases (including Flask's default instance directory)
+*.db
+*.sqlite
+*.sqlite3
+instance/
+# Python bytecode and test caches
+_pycache_/
+*.py[cod]
+.pytest_cache/
