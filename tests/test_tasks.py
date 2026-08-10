@@ -126,3 +126,25 @@ def test_sort_priority(client):
     assert response.status_code == 200
 
     assert data["tasks"][0]["priority"] == "High"
+
+# ================= EXCEL EXPORT TEST =================
+
+def test_export_tasks_xlsx(client):
+
+    login_test_user(client)
+
+    client.post("/api/tasks", json={
+        "title": "Export me",
+        "description": "Excel export test",
+        "deadline": "2026-03-20",
+        "priority": "High"
+    })
+
+    response = client.get("/api/tasks/export/xlsx")
+
+    assert response.status_code == 200
+    assert response.mimetype == (
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    assert response.headers["Content-Disposition"].endswith('filename=tasks.xlsx')
+    assert response.data.startswith(b"PK")  # XLSX files are ZIP containers

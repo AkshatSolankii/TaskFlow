@@ -226,6 +226,7 @@ def export_tasks_csv():
 
 
 # ================= EXPORT TASKS (EXCEL) =================
+@task_bp.route('/tasks/export/xlsx', methods=['GET'])
 @task_bp.route('/tasks/export/excel', methods=['GET'])
 @login_required
 def export_tasks_excel():
