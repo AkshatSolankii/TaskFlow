@@ -303,7 +303,7 @@ function buildFilterParams() {
     const params   = new URLSearchParams();
     if (status)   params.set("status",   status);
     if (priority) params.set("priority", priority);
-    if (category) params.set("category", category);
+    if (category) params.set("category_name", category);
     if (search)   params.set("search",   search);
     return params;
 }
