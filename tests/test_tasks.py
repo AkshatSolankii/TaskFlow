@@ -63,6 +63,16 @@ def test_get_tasks(client):
 
     assert len(data["tasks"]) > 0
 
+def test_get_calendar_tasks(client):
+    login_test_user(client)
+    client.post("/api/tasks", json={"title": "Scheduled", "deadline": "2026-03-20"})
+    client.post("/api/tasks", json={"title": "Unscheduled"})
+
+    response = client.get("/api/calendar-tasks")
+
+    assert response.status_code == 200
+    data = response.get_json()
+    assert [task["title"] for task in data["tasks"]] == ["Scheduled"]
 
 # ================= PAGINATION TEST =================
 

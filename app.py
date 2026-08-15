@@ -85,6 +85,11 @@ def table_page():
 def my_tasks():
     return render_template("my_tasks.html")
 
+@app.route("/calendar")
+@login_required
+def calendar_page():
+    return render_template("calendar.html")
+
 @app.route("/activity-log")
 def activity_log_page():
     return render_template("activity_log.html")
