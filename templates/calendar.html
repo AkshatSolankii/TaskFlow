@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="calendar-page" aria-labelledby="calendar-heading">
+    <div class="calendar-header">
+        <div>
+            <h2 id="calendar-heading" class="section-title">Calendar</h2>
+            <p class="calendar-subtitle">Your tasks, organized by due date.</p>
+        </div>
+        <div class="calendar-controls" aria-label="Calendar navigation">
+            <button type="button" class="calendar-nav" id="calendar-previous" aria-label="Previous month">&larr;</button>
+            <button type="button" class="calendar-today" id="calendar-today">Today</button>
+            <button type="button" class="calendar-nav" id="calendar-next" aria-label="Next month">&rarr;</button>
+        </div>
+    </div>
+
+    <div class="calendar-legend" aria-label="Task status legend">
+        <span><i class="calendar-legend-dot completed"></i>Completed</span>
+        <span><i class="calendar-legend-dot pending"></i>Pending</span>
+        <span><i class="calendar-legend-dot overdue"></i>Overdue</span>
+    </div>
+
+    <div id="calendar-month" class="calendar-month" aria-live="polite"></div>
+    <div id="calendar-grid" class="calendar-grid" aria-label="Month calendar"></div>
+</section>
+
+<script>
+(() => {
+    const monthLabel = document.getElementById("calendar-month");
+    const grid = document.getElementById("calendar-grid");
+    let shownMonth = new Date();
+    shownMonth = new Date(shownMonth.getFullYear(), shownMonth.getMonth(), 1);
+    let tasks = [];
+
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const dateKey = date => [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
+    const parseDeadline = deadline => new Date(`${String(deadline).slice(0, 10)}T00:00:00`);
+    const escapeHtml = value => String(value || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+
+    function statusFor(task) {
+        if (task.status === "completed") return "completed";
+        const due = parseDeadline(task.deadline);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return due < today ? "overdue" : "pending";
+    }
+
+    function renderCalendar() {
+        monthLabel.textContent = shownMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+        const firstDay = new Date(shownMonth.getFullYear(), shownMonth.getMonth(), 1);
+        const gridStart = new Date(firstDay);
+        gridStart.setDate(1 - firstDay.getDay());
+        const todayKey = dateKey(new Date());
+        const taskByDate = new Map();
+        tasks.forEach(task => {
+            const key = String(task.deadline || "").slice(0, 10);
+            if (!key) return;
+            if (!taskByDate.has(key)) taskByDate.set(key, []);
+            taskByDate.get(key).push(task);
+        });
+
+        grid.innerHTML = dayNames.map(day => `<div class="calendar-weekday">${day}</div>`).join("");
+        for (let offset = 0; offset < 42; offset += 1) {
+            const day = new Date(gridStart);
+            day.setDate(gridStart.getDate() + offset);
+            const key = dateKey(day);
+            const dayTasks = taskByDate.get(key) || [];
+            const classes = ["calendar-day"];
+            if (day.getMonth() !== shownMonth.getMonth()) classes.push("outside-month");
+            if (key === todayKey) classes.push("today");
+            grid.insertAdjacentHTML("beforeend", `
+                <div class="${classes.join(" ")}">
+                    <time datetime="${key}" class="calendar-date">${day.getDate()}</time>
+                    <div class="calendar-tasks">
+                        ${dayTasks.map(task => `<a class="calendar-task ${statusFor(task)}" href="/tasks/${task.id}" title="Open ${escapeHtml(task.title)}">${escapeHtml(task.title)}</a>`).join("")}
+                    </div>
+                </div>`);
+        }
+    }
+
+    async function loadCalendar() {
+        try {
+            const response = await fetch("/api/calendar-tasks", { credentials: "include" });
+            if (response.status === 401 || response.redirected) { window.location.href = "/login"; return; }
+            if (!response.ok) throw new Error("Unable to load tasks");
+            tasks = (await response.json()).tasks || [];
+            renderCalendar();
+        } catch (error) {
+            monthLabel.textContent = "Calendar unavailable";
+            grid.innerHTML = '<p class="calendar-error">Unable to load calendar tasks. Please try again.</p>';
+        }
+    }
+
+    document.getElementById("calendar-previous").addEventListener("click", () => { shownMonth.setMonth(shownMonth.getMonth() - 1); renderCalendar(); });
+    document.getElementById("calendar-next").addEventListener("click", () => { shownMonth.setMonth(shownMonth.getMonth() + 1); renderCalendar(); });
+    document.getElementById("calendar-today").addEventListener("click", () => { const now = new Date(); shownMonth = new Date(now.getFullYear(), now.getMonth(), 1); renderCalendar(); });
+    loadCalendar();
+})();
+</script>
+{% endblock %}

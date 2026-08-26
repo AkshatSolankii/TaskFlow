@@ -11,6 +11,7 @@ from comments import comments_bp
 from templates import templates_bp
 from admin import admin_bp
 from health import health_bp
+from attachments import attachments_bp
 
 app = Flask(__name__)
 
@@ -53,6 +54,10 @@ app.register_blueprint(comments_bp,  url_prefix="/api")
 app.register_blueprint(templates_bp, url_prefix="/api")
 app.register_blueprint(saved_filters_bp, url_prefix="/api")
 app.register_blueprint(admin_bp, url_prefix="/api")
+app.register_blueprint(attachments_bp, url_prefix="/api")
+
+app.config["UPLOAD_FOLDER"] = os.path.join(BASE_DIR, "instance", "uploads")
+app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
 
 # Health/version are registered at the root (no /api prefix) since
 # load balancers, uptime monitors, and container orchestrators
@@ -84,6 +89,11 @@ def table_page():
 @app.route("/tasks")
 def my_tasks():
     return render_template("my_tasks.html")
+
+@app.route("/calendar")
+@login_required
+def calendar_page():
+    return render_template("calendar.html")
 
 @app.route("/activity-log")
 def activity_log_page():

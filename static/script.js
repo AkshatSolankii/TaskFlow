@@ -6,6 +6,7 @@ let TOTAL_PAGES = 1;
 let LIMIT = 7;
 let CURRENT_SORT = "created";
 let SELECTED_TASK_IDS = new Set();
+let PENDING_CREATED_TASK_ID = null;
 const isAuthPage =
     window.location.pathname === "/login" ||
     window.location.pathname === "/register";
@@ -603,8 +604,94 @@ async function bulkDeleteSelected() {
 
 
 // ================= TASK CRUD =================
-function saveTask(e) {
+function getSelectedAttachments() {
+    return Array.from(document.getElementById("task-attachments")?.files || []);
+}
+
+function renderSelectedAttachments() {
+    const list = document.getElementById("task-selected-attachment-list");
+    if (!list) return;
+    const files = getSelectedAttachments();
+    list.innerHTML = files.length
+        ? files.map(file => `<div class="task-attachment-item">
+            <span class="task-attachment-type">${attachmentTypeLabel(file.name)}</span>
+            <strong>${escapeHtml(file.name)}</strong>
+            <span>${formatAttachmentSize(file.size)}</span>
+          </div>`).join("")
+        : "";
+}
+
+function formatAttachmentSize(size) {
+    if (size < 1024) return `${size} B`;
+    if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function attachmentTypeLabel(name) {
+    const match = String(name).match(/\.([a-z0-9]+)$/i);
+    return match ? match[1].toUpperCase() : "FILE";
+}
+
+async function uploadTaskAttachments(taskId) {
+    const files = getSelectedAttachments();
+    if (!files.length) return [];
+    const results = await Promise.all(files.map(async file => {
+        const formData = new FormData();
+        formData.append("file", file);
+        const response = await fetch(`/api/tasks/${taskId}/attachments`, {
+            method: "POST", credentials: "include", body: formData
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(`${file.name}: ${data.error || "upload failed"}`);
+        return data;
+    }));
+    return results;
+}
+
+async function loadTaskFormAttachments(taskId) {
+    const list = document.getElementById("task-attachment-list");
+    if (!list) return;
+    try {
+        const [attachmentResponse, taskResponse, userResponse] = await Promise.all([
+            fetch(`/api/tasks/${taskId}/attachments`, { credentials: "include" }),
+            fetch(`/api/tasks/${taskId}`, { credentials: "include" }),
+            fetch("/api/me", { credentials: "include" })
+        ]);
+        if (!attachmentResponse.ok || !taskResponse.ok || !userResponse.ok) throw new Error();
+        const [attachments, task, user] = await Promise.all([
+            attachmentResponse.json(), taskResponse.json(), userResponse.json()
+        ]);
+        const canManage = ["Owner", "Admin", "Manager"].includes(task.your_role);
+        list.innerHTML = attachments.length
+            ? attachments.map(attachment => `<div class="task-attachment-item" id="form-attachment-${attachment.id}">
+                <span class="task-attachment-type">${attachmentTypeLabel(attachment.name)}</span>
+                <strong>${escapeHtml(attachment.name)}</strong>
+                <small>${formatAttachmentSize(attachment.size)}</small>
+                ${(canManage || attachment.user_id === user.id)
+                    ? `<button type="button" class="attachment-delete" onclick="deleteTaskFormAttachment(${taskId}, ${attachment.id})">Delete</button>`
+                    : ""}
+              </div>`).join("")
+            : '<p class="muted">No files attached yet.</p>';
+    } catch {
+        list.innerHTML = '<p class="muted">Unable to load attachments.</p>';
+    }
+}
+
+async function deleteTaskFormAttachment(taskId, attachmentId) {
+    if (!confirm("Delete this attachment?")) return;
+    const response = await fetch(`/api/tasks/${taskId}/attachments/${attachmentId}`, {
+        method: "DELETE", credentials: "include"
+    });
+    if (!response.ok) {
+        const data = await response.json();
+        return showError(data.error || "Failed to delete attachment.");
+    }
+    loadTaskFormAttachments(taskId);
+}
+
+async function saveTask(e) {
     e.preventDefault();
+    if (PENDING_CREATED_TASK_ID) return updateTask(e, PENDING_CREATED_TASK_ID);
     const title = document.getElementById("title").value.trim();
     const description = document.getElementById("description").value.trim();
     const deadlineInput = document.getElementById("deadline").value;
@@ -614,17 +701,28 @@ function saveTask(e) {
     if (!title || !deadlineInput) return showError("Title and Deadline are required.");
     if (new Date(deadlineInput) < new Date()) return showError("Deadline cannot be in the past.");
 
-    fetch("/api/tasks", {
-        method: "POST", credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, description, deadline: deadlineInput, priority, category_id })
-    })
-        .then(res => { if (!res.ok) throw new Error(); return res.json(); })
-        .then(() => { localStorage.removeItem("editingTask"); showSuccess("Task created successfully."); setTimeout(() => { window.location.href = "/"; }, 700); })
-        .catch(() => showError("Failed to create task."));
+    try {
+        const response = await fetch("/api/tasks", {
+            method: "POST", credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title, description, deadline: deadlineInput, priority, category_id })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Failed to create task.");
+        PENDING_CREATED_TASK_ID = data.task.id;
+        await uploadTaskAttachments(data.task.id);
+        PENDING_CREATED_TASK_ID = null;
+        localStorage.removeItem("editingTask");
+        showSuccess("Task created successfully.");
+        setTimeout(() => { window.location.href = `/tasks/${data.task.id}`; }, 700);
+    } catch (error) {
+        showError(PENDING_CREATED_TASK_ID
+            ? `Task created, but attachments could not be uploaded: ${error.message || "please try again."}`
+            : (error.message || "Failed to create task."));
+    }
 }
 
-function updateTask(e, id) {
+async function updateTask(e, id) {
     e.preventDefault();
     const title = document.getElementById("title").value.trim();
     const description = document.getElementById("description").value.trim();
@@ -637,14 +735,22 @@ function updateTask(e, id) {
     if (!title || !deadlineInput) return showError("Title and Deadline are required.");
     if (new Date(deadlineInput) < new Date()) return showError("Deadline cannot be in the past.");
 
-    fetch(`/api/tasks/${id}`, {
-        method: "PATCH", credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, description, deadline: deadlineInput, priority, status, category_id })
-    })
-        .then(res => { if (!res.ok) throw new Error(); return res.json(); })
-        .then(() => { localStorage.removeItem("editingTask"); showSuccess("Task updated successfully."); setTimeout(() => { window.location.href = "/"; }, 700); })
-        .catch(() => showError("Failed to update task."));
+    try {
+        const response = await fetch(`/api/tasks/${id}`, {
+            method: "PATCH", credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title, description, deadline: deadlineInput, priority, status, category_id })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Failed to update task.");
+        await uploadTaskAttachments(id);
+        PENDING_CREATED_TASK_ID = null;
+        localStorage.removeItem("editingTask");
+        showSuccess("Task updated successfully.");
+        setTimeout(() => { window.location.href = `/tasks/${id}`; }, 700);
+    } catch (error) {
+        showError(error.message || "Task was not updated or attachments could not be uploaded.");
+    }
 }
 
 function goEdit(id) {
@@ -826,10 +932,13 @@ document.addEventListener("DOMContentLoaded", () => {
         if (f("deadline")) f("deadline").value = task.deadline || "";
         if (f("priority")) f("priority").value = task.priority || "Medium";
         if (f("category")) f("category").value = task.category_id || "";
+        loadTaskFormAttachments(task.id);
         form.onsubmit = e => updateTask(e, task.id);
     } else if (form) {
         form.onsubmit = e => saveTask(e);
     }
+    document.getElementById("task-attachments")
+        ?.addEventListener("change", renderSelectedAttachments);
 });
 
 

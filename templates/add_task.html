@@ -30,6 +30,15 @@
         <option>Low</option>
     </select>
 
+    <section class="task-form-attachments" aria-labelledby="task-form-attachments-title">
+        <h3 id="task-form-attachments-title">Attachments</h3>
+        <p>Attach PDF, PNG, JPG, or DOCX files up to 10 MB each.</p>
+        <input id="task-attachments" type="file" multiple
+               accept=".pdf,.png,.jpg,.jpeg,.docx,application/pdf,image/png,image/jpeg,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+        <div id="task-attachment-list" class="task-attachment-list" aria-live="polite"></div>
+        <div id="task-selected-attachment-list" class="task-attachment-list" aria-live="polite"></div>
+    </section>
+
     <button class="btn btn-blue full-width" type="submit">Save Task</button>
 </form>
 
