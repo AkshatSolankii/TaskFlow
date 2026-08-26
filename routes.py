@@ -173,6 +173,30 @@ def get_tasks():
     }), 200
 
 
+# ================= CALENDAR TASKS =================
+@task_bp.route('/calendar-tasks', methods=['GET'])
+@login_required
+def get_calendar_tasks():
+    """Return every due-dated task the current user is allowed to view."""
+    if current_user.can_manage_all_tasks():
+        tasks = Task.query.filter(Task.deadline.isnot(None)).all()
+    else:
+        shared_ids = [
+            membership.task_id
+            for membership in TaskMember.query.filter_by(user_id=current_user.id).all()
+        ]
+        query = Task.query.filter(Task.deadline.isnot(None))
+        if shared_ids:
+            query = query.filter(
+                (Task.user_id == current_user.id) | Task.id.in_(shared_ids)
+            )
+        else:
+            query = query.filter_by(user_id=current_user.id)
+        tasks = query.all()
+
+    return jsonify({"tasks": [task.to_dict() for task in tasks]}), 200
+
+
 # ================= GET SINGLE TASK =================
 @task_bp.route('/tasks/<int:id>', methods=['GET'])
 @login_required

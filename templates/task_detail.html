@@ -19,6 +19,16 @@
         <div id="checklist-items"></div>
     </div>
 
+    <section class="attachments-section" aria-labelledby="attachments-title">
+        <div class="attachments-heading">
+            <div>
+                <h4 id="attachments-title">Attachments</h4>
+                <p>Files attached to this task.</p>
+            </div>
+        </div>
+        <div id="attachments-list" class="attachments-list"><p class="td-muted">Loading attachments…</p></div>
+    </section>
+
     <!-- ── TABS ──────────────────────────────────── -->
     <div class="td-tabs">
         <button class="td-tab active" data-tab="comments">💬 Comments</button>
@@ -565,6 +575,19 @@
 .pill-accepted { background:#16a34a22; color:#4ade80; border:1px solid #16a34a44; }
 .pill-rejected { background:#33333322; color:#9ca3af; border:1px solid #33333344; }
 .sent-inv-row,span{color:white}
+.attachments-section { background: #111c31; border: 1px solid #475569; border-radius: 12px; box-shadow: 0 8px 22px rgba(2, 6, 23, .18); margin: 24px 0; padding: 18px; }
+.attachments-heading { align-items: center; display: flex; justify-content: space-between; gap: 12px; }
+.attachments-heading h4 { color: #f8fafc; font-size: 1rem; margin: 0; }
+.attachments-heading p, .attachment-message { color: #94a3b8; font-size: .82rem; margin: 5px 0 0; }
+.attachments-list { display: grid; gap: 8px; margin-top: 14px; }
+.attachment-row { align-items: center; background: #1e293b; border: 1px solid #475569; border-radius: 8px; display: flex; gap: 12px; padding: 11px 12px; }
+.attachment-file-type { background: #312e81; border: 1px solid #818cf8; border-radius: 6px; color: #e0e7ff; font-size: .68rem; font-weight: 800; letter-spacing: .04em; min-width: 42px; padding: 6px 5px; text-align: center; }
+.attachment-name { color: #f8fafc; flex: 1; font-size: .88rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attachment-size { color: #cbd5e1; font-size: .78rem; white-space: nowrap; }
+.attachment-download, .attachment-delete { background: #2563eb; border: 0; border-radius: 6px; color: #fff; cursor: pointer; font-size: .78rem; font-weight: 700; padding: 7px 10px; text-decoration: none; }
+.attachment-download:hover { background: #1d4ed8; }
+.attachment-delete { color: #fca5a5; }
+@media (max-width: 560px) { .attachments-heading, .attachment-row { align-items: flex-start; flex-wrap: wrap; } .attachment-name { flex-basis: calc(100% - 58px); } .attachment-download { margin-left: 54px; } }
 </style>
 
 
@@ -580,6 +603,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("self-avatar").textContent =
         {{ current_username | tojson }}[0].toUpperCase();
     await loadTaskHeader();
+    await loadAttachments();
     await loadComments();
     await loadChecklist();
     await loadMembers();
@@ -634,6 +658,41 @@ async function loadTaskHeader() {
 
     } catch (e) {
         console.error("loadTaskHeader:", e);
+    }
+}
+
+// Attachments
+function formatFileSize(bytes) {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function attachmentType(name) {
+    const match = String(name).match(/\.([a-z0-9]+)$/i);
+    return match ? match[1].toUpperCase() : "FILE";
+}
+
+async function loadAttachments() {
+    const list = document.getElementById("attachments-list");
+    try {
+        const response = await fetch(`/api/tasks/${TASK_ID}/attachments`, { credentials: "include" });
+        if (!response.ok) throw new Error("Unable to load attachments");
+        const attachments = await response.json();
+        if (!attachments.length) {
+            list.innerHTML = '<p class="td-muted">No files attached yet.</p>';
+            return;
+        }
+        list.innerHTML = attachments.map(attachment => {
+            return `<div class="attachment-row" id="attachment-${attachment.id}">
+                <span class="attachment-file-type">${attachmentType(attachment.name)}</span>
+                <span class="attachment-name">${escHtml(attachment.name)}</span>
+                <span class="attachment-size">${formatFileSize(attachment.size)}</span>
+                <a class="attachment-download" href="/api/tasks/${TASK_ID}/attachments/${attachment.id}/download">Download</a>
+            </div>`;
+        }).join("");
+    } catch (error) {
+        list.innerHTML = '<p class="td-muted">Failed to load attachments.</p>';
     }
 }
 

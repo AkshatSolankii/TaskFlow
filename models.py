@@ -80,6 +80,9 @@ class Task(db.Model):
     checklist_items = db.relationship("TaskChecklistItem", backref="task", lazy=True,
                                   cascade="all, delete-orphan",
                                   order_by="TaskChecklistItem.position.asc()")
+    attachments = db.relationship("TaskAttachment", backref="task", lazy=True,
+                                  cascade="all, delete-orphan",
+                                  order_by="TaskAttachment.created_at.desc()")
 
     def to_dict(self):
         return {
@@ -97,6 +100,33 @@ class Task(db.Model):
 
     def __repr__(self):
         return f"<Task {self.title}>"
+
+
+# ================= TASK ATTACHMENT =================
+class TaskAttachment(db.Model):
+    __tablename__ = "task_attachments"
+
+    id            = db.Column(db.Integer, primary_key=True)
+    task_id       = db.Column(db.Integer, db.ForeignKey("tasks.id"), nullable=False, index=True)
+    user_id       = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    original_name = db.Column(db.String(255), nullable=False)
+    stored_name   = db.Column(db.String(255), nullable=False, unique=True)
+    content_type  = db.Column(db.String(100), nullable=False)
+    size          = db.Column(db.Integer, nullable=False)
+    created_at    = db.Column(db.DateTime, default=datetime.utcnow)
+
+    uploader = db.relationship("User", backref="task_attachments")
+
+    def to_dict(self):
+        return {
+            "id":           self.id,
+            "task_id":      self.task_id,
+            "user_id":      self.user_id,
+            "name":         self.original_name,
+            "content_type": self.content_type,
+            "size":         self.size,
+            "created_at":   self.created_at.isoformat()
+        }
 
 
 # ================= TASK MEMBER =================
