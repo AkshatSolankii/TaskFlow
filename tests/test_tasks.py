@@ -178,7 +178,6 @@ def test_sort_priority(client):
 
     assert data["tasks"][0]["priority"] == "High"
 
-
 # ================= EXCEL EXPORT TEST =================
 
 def test_export_tasks_xlsx(client):
