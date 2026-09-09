@@ -34,7 +34,7 @@
 
     const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     const dateKey = date => [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
-    const parseDeadline = deadline => new Date(`${String(deadline).slice(0, 10)}T00:00:00`);
+    const parseDeadline = deadline => new Date(deadline);
     const escapeHtml = value => String(value || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 
     function statusFor(task) {
@@ -53,8 +53,8 @@
         const todayKey = dateKey(new Date());
         const taskByDate = new Map();
         tasks.forEach(task => {
-            const key = String(task.deadline || "").slice(0, 10);
-            if (!key) return;
+            if (!task.deadline) return;
+            const key = dateKey(new Date(task.deadline));
             if (!taskByDate.has(key)) taskByDate.set(key, []);
             taskByDate.get(key).push(task);
         });
