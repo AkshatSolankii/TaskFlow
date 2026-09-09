@@ -643,8 +643,8 @@ async function loadTaskHeader() {
 
         document.getElementById("td-meta").innerHTML = `
             <span style="color:black">📅 Due: ${task.deadline
-                ? new Date(task.deadline).toLocaleDateString("en-IN",
-                    { dateStyle: "medium" })
+                ? new Date(task.deadline).toLocaleString(undefined,
+                    { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
                 : "No deadline"}</span>
             <span style="color:black">🔥 Priority: ${task.priority}</span>
             <span style="color:black">🗂 Category: ${task.category || "Uncategorized"}</span>

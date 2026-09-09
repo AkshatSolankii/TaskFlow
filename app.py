@@ -64,6 +64,13 @@ app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
 # conventionally expect them at the top level, e.g. GET /health.
 app.register_blueprint(health_bp)
 
+@app.after_request
+def add_header(response):
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '-1'
+    return response
+
 # ------------------ CREATE DATABASE ------------------
 with app.app_context():
     db.create_all()

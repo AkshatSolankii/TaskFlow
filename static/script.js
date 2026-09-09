@@ -695,6 +695,7 @@ async function saveTask(e) {
     const title = document.getElementById("title").value.trim();
     const description = document.getElementById("description").value.trim();
     const deadlineInput = document.getElementById("deadline").value;
+    const deadlineUTC = deadlineInput ? new Date(deadlineInput).toISOString() : null;
     const priority = document.getElementById("priority").value;
     const category_id = document.getElementById("category")?.value || null;
 
@@ -705,7 +706,7 @@ async function saveTask(e) {
         const response = await fetch("/api/tasks", {
             method: "POST", credentials: "include",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ title, description, deadline: deadlineInput, priority, category_id })
+            body: JSON.stringify({ title, description, deadline: deadlineUTC, priority, category_id })
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Failed to create task.");
@@ -727,6 +728,7 @@ async function updateTask(e, id) {
     const title = document.getElementById("title").value.trim();
     const description = document.getElementById("description").value.trim();
     const deadlineInput = document.getElementById("deadline").value;
+    const deadlineUTC = deadlineInput ? new Date(deadlineInput).toISOString() : null;
     const priority = document.getElementById("priority").value;
     const statusField = document.getElementById("status");
     const status = statusField ? statusField.value : "pending";
@@ -739,7 +741,7 @@ async function updateTask(e, id) {
         const response = await fetch(`/api/tasks/${id}`, {
             method: "PATCH", credentials: "include",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ title, description, deadline: deadlineInput, priority, status, category_id })
+            body: JSON.stringify({ title, description, deadline: deadlineUTC, priority, status, category_id })
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Failed to update task.");
@@ -798,7 +800,7 @@ function renderMyTasks() {
         container.innerHTML += `
             <div class="task-card">
                 <h3>${escapeHtml(t.title)}</h3>
-                <p>Due: ${t.deadline || "-"}</p>
+                <p>Due: ${t.deadline ? new Date(t.deadline).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : "-"}</p>
                 <p>Priority: ${t.priority}</p>
                 <p>Status: ${t.status}</p>
             </div>`;
@@ -929,7 +931,15 @@ document.addEventListener("DOMContentLoaded", () => {
         const f = id => document.getElementById(id);
         if (f("title")) f("title").value = task.title || "";
         if (f("description")) f("description").value = task.description || "";
-        if (f("deadline")) f("deadline").value = task.deadline || "";
+        if (f("deadline")) {
+            if (task.deadline) {
+                const d = new Date(task.deadline);
+                const pad = n => String(n).padStart(2, '0');
+                f("deadline").value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+            } else {
+                f("deadline").value = "";
+            }
+        }
         if (f("priority")) f("priority").value = task.priority || "Medium";
         if (f("category")) f("category").value = task.category_id || "";
         loadTaskFormAttachments(task.id);

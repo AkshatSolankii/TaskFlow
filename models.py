@@ -190,8 +190,8 @@ class Invitation(db.Model):
             "invitee_username": self.invitee.username if self.invitee else self.invitee_username,
             "role":             self.role,
             "status":           self.status,
-            "created_at":       self.created_at.strftime("%d %b %Y, %I:%M %p"),
-            "responded_at":     (self.responded_at.strftime("%d %b %Y, %I:%M %p")
+            "created_at":       self.created_at.isoformat(),
+            "responded_at":     (self.responded_at.isoformat()
                                  if self.responded_at else None)
         }
 
@@ -224,6 +224,35 @@ class Comment(db.Model):
 
     def __repr__(self):
         return f"<Comment task={self.task_id} by={self.user_id}>"
+
+# ================= NOTIFICATION =================
+class Notification(db.Model):
+    __tablename__ = "notifications"
+
+    id         = db.Column(db.Integer, primary_key=True)
+    user_id    = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    message    = db.Column(db.String(255), nullable=False)
+    type       = db.Column(db.String(50), nullable=False) # 'overdue', 'assigned', 'comment', 'status_change'
+    is_read    = db.Column(db.Boolean, default=False)
+    task_id    = db.Column(db.Integer, db.ForeignKey("tasks.id"), nullable=True, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship("User", backref="notifications")
+    task = db.relationship("Task", backref="task_notifications")
+
+    def to_dict(self):
+        return {
+            "id":         self.id,
+            "user_id":    self.user_id,
+            "message":    self.message,
+            "type":       self.type,
+            "is_read":    self.is_read,
+            "task_id":    self.task_id,
+            "created_at": self.created_at.isoformat()
+        }
+
+    def __repr__(self):
+        return f"<Notification user={self.user_id} type={self.type}>"
 
 
 # ================= TASK TEMPLATE =================

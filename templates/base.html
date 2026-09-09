@@ -116,8 +116,9 @@
 
                 try {
 
-                    const response = await fetch("/api/invitations/count", {
-                        credentials: "include"
+                    const response = await fetch("/api/notifications/count", {
+                        credentials: "include",
+                        cache: "no-store"
                     });
 
                     if (!response.ok) return;

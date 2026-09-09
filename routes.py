@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify, send_file, Response
 from sqlalchemy import case, func
 from datetime import datetime
 from flask_login import login_required, current_user
-from models import db, Task, Category, ActivityLog, TaskMember, can_access_task
+from models import db, Task, Category, ActivityLog, TaskMember, Notification, can_access_task
 import io
 import csv
 from openpyxl import Workbook
@@ -317,11 +317,27 @@ def update_task(id):
 
     data = request.get_json()
 
+    old_status = task.status
+
     task.title       = data.get("title",       task.title)
     task.description = data.get("description", task.description)
     task.deadline    = data.get("deadline",    task.deadline)
     task.priority    = data.get("priority",    task.priority)
     task.status      = data.get("status",      task.status)
+
+    if old_status != task.status:
+        members = TaskMember.query.filter_by(task_id=id).all()
+        notify_user_ids = set([m.user_id for m in members])
+        notify_user_ids.add(task.user_id)
+        notify_user_ids.discard(current_user.id)
+        
+        for uid in notify_user_ids:
+            db.session.add(Notification(
+                user_id=uid,
+                message=f"Status of '{task.title}' changed to {task.status}",
+                type="status_change",
+                task_id=id
+            ))
 
     if is_owner:
         task.category_id = data.get("category_id", task.category_id)
@@ -390,7 +406,19 @@ def bulk_update_status():
         return jsonify({"error": "No matching tasks found"}), 404
 
     for task in tasks:
-        task.status = status
+        if task.status != status:
+            task.status = status
+            members = TaskMember.query.filter_by(task_id=task.id).all()
+            notify_user_ids = set([m.user_id for m in members])
+            notify_user_ids.add(task.user_id)
+            notify_user_ids.discard(current_user.id)
+            for uid in notify_user_ids:
+                db.session.add(Notification(
+                    user_id=uid,
+                    message=f"Status of '{task.title}' changed to {task.status}",
+                    type="status_change",
+                    task_id=task.id
+                ))
 
     activity = ActivityLog(
         action      = f"Bulk marked {len(tasks)} task(s) as {status}",
