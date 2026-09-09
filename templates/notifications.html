@@ -1,25 +1,113 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h2 class="section-title">🔔 Notifications</h2>
-<p class="notif-subtitle">Task invitations sent to you</p>
+<h2 class="section-title">🔔 Notification Center</h2>
+<p class="notif-subtitle">Stay updated on your tasks and invitations.</p>
 
 <div id="message-box"></div>
+
+<!-- GENERAL NOTIFICATIONS -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+    <h3 style="color: #1e293b; margin: 0;">Alerts</h3>
+    <button onclick="markAllRead()" style="padding: 6px 14px; font-size: 0.85rem; border-radius: 8px; cursor: pointer; background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; transition: all 0.2s; font-weight: 500;">
+        ✓ Mark all as read
+    </button>
+</div>
+<div id="notifications-container" style="margin-bottom: 40px;"></div>
+
+<!-- INVITATIONS -->
+<h3 style="color: #1e293b; margin-bottom: 15px;">Invitations</h3>
 <div id="invitations-container"></div>
 
 <style>
 .notif-subtitle {
-    color: var(--muted-color, #94a3b8);
-    font-size: 0.88rem;
-    margin: -8px 0 24px;
+    color: #64748b;
+    font-size: 0.95rem;
+    margin: -8px 0 30px;
+    letter-spacing: 0.01em;
 }
 
-/* ── invitation card ── */
+/* ── General Notification Card ── */
+.notif-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.notif-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+    border-color: #cbd5e1;
+}
+
+.notif-card.unread {
+    background: #fafafa;
+    border-left: 4px solid #3b82f6; /* Vibrant blue */
+    position: relative;
+}
+
+.notif-card.unread .notif-msg {
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.notif-info { flex: 1; }
+
+.notif-msg {
+    font-size: 0.95rem;
+    color: #334155;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.notif-meta {
+    font-size: 0.8rem;
+    color: #64748b;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+}
+
+.notif-meta a {
+    color: #3b82f6;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s;
+}
+.notif-meta a:hover { color: #2563eb; }
+
+.notif-actions button {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    color: #475569;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.notif-actions button:hover { 
+    background: #eff6ff; 
+    color: #2563eb;
+    border-color: #bfdbfe;
+}
+
+/* ── Invitation Card ── */
 .inv-card {
-    background: var(--card-bg, #1e293b);
-    border: 1px solid var(--border-color, #334155);
-    border-left: 4px solid #3b82f6;
-    border-radius: 10px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid #8b5cf6; /* Elegant purple */
+    border-radius: 12px;
     padding: 18px 20px;
     margin-bottom: 14px;
     display: flex;
@@ -27,96 +115,190 @@
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 14px;
-    transition: border-color .2s;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
 }
-.inv-card:hover { border-left-color: #60a5fa; }
-
-/* accepted / rejected states */
-.inv-card.accepted { border-left-color: #16a34a; opacity: .75; }
-.inv-card.rejected { border-left-color: #6b7280; opacity: .6;  }
+.inv-card:hover { 
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
+    border-left-color: #7c3aed; 
+}
+.inv-card.accepted { border-left-color: #10b981; opacity: 0.8; }
+.inv-card.rejected { border-left-color: #64748b; opacity: 0.7;  }
 
 .inv-info { flex: 1; min-width: 200px; }
-
 .inv-task-title {
     font-weight: 700;
-    font-size: 1rem;
-    color: var(--text-color, #e2e8f0);
-    margin-bottom: 5px;
+    font-size: 1.05rem;
+    color: #1e293b;
+    margin-bottom: 6px;
+    letter-spacing: 0.01em;
 }
-
 .inv-meta {
-    font-size: 0.82rem;
-    color: var(--muted-color, #94a3b8);
+    font-size: 0.85rem;
+    color: #64748b;
     display: flex;
     flex-wrap: wrap;
-    gap: 14px;
-    margin-top: 4px;
+    gap: 16px;
+    margin-top: 6px;
+    align-items: center;
 }
 
 .inv-role-badge {
-    padding: 2px 10px;
+    padding: 3px 10px;
     border-radius: 20px;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
-.role-editor { background: #3b2a05; color: #fbbf24; }
-.role-viewer { background: #1a2a1a; color: #86efac; }
+.role-editor { background: #fef3c7; color: #d97706; border: 1px solid #fde68a; }
+.role-viewer { background: #d1fae5; color: #059669; border: 1px solid #a7f3d0; }
 
 .inv-actions { display: flex; gap: 10px; flex-shrink: 0; }
-
 .btn-accept {
-    background: #16a34a;
-    color: #fff;
-    border: none;
-    border-radius: 7px;
-    padding: 8px 20px;
-    font-size: 0.85rem;
-    font-weight: 600;
+    background: #10b981; 
+    color: #ffffff; 
+    border: none; 
+    border-radius: 8px;
+    padding: 8px 20px; 
+    font-size: 0.85rem; 
+    font-weight: 600; 
     cursor: pointer;
-    transition: background .2s, opacity .2s;
+    transition: transform 0.1s, box-shadow 0.2s, background 0.2s;
+    box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
 }
-.btn-accept:hover    { background: #15803d; }
-.btn-accept:disabled { opacity: .5; cursor: default; }
+.btn-accept:hover    { background: #059669; transform: translateY(-1px); box-shadow: 0 4px 6px rgba(16, 185, 129, 0.3); }
+.btn-accept:disabled { opacity: 0.5; cursor: default; transform: none; box-shadow: none; }
 
 .btn-reject {
-    background: transparent;
-    color: #f87171;
-    border: 1px solid #f8717155;
-    border-radius: 7px;
-    padding: 8px 20px;
-    font-size: 0.85rem;
+    background: transparent; 
+    color: #ef4444; 
+    border: 1px solid #fca5a5;
+    border-radius: 8px; 
+    padding: 8px 20px; 
+    font-size: 0.85rem; 
     font-weight: 600;
-    cursor: pointer;
-    transition: background .2s, opacity .2s;
+    cursor: pointer; 
+    transition: all 0.2s ease;
 }
-.btn-reject:hover    { background: #7f1d1d33; }
-.btn-reject:disabled { opacity: .5; cursor: default; }
+.btn-reject:hover    { background: #fef2f2; border-color: #ef4444; }
+.btn-reject:disabled { opacity: 0.5; cursor: default; background: transparent; }
 
 .inv-status-label {
-    font-size: 0.8rem;
-    font-weight: 700;
-    padding: 5px 14px;
-    border-radius: 6px;
+    font-size: 0.8rem; font-weight: 600; padding: 6px 14px; border-radius: 8px;
 }
-.status-accepted { background: #16a34a22; color: #4ade80; }
-.status-rejected { background: #33333322; color: #9ca3af; }
+.status-accepted { background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
+.status-rejected { background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
 
 /* empty state */
 .empty-notif {
-    text-align: center;
-    padding: 60px 20px;
-    color: var(--muted-color, #94a3b8);
+    text-align: center; 
+    padding: 40px 20px; 
+    color: #94a3b8;
+    background: #f8fafc; 
+    border-radius: 12px; 
+    border: 1px dashed #cbd5e1;
 }
-.empty-notif .empty-icon { font-size: 3rem; margin-bottom: 12px; }
-.empty-notif p { font-size: 0.95rem; }
+.empty-notif .empty-icon { font-size: 2.5rem; margin-bottom: 16px; opacity: 0.7; }
+.empty-notif p { font-size: 0.95rem; margin: 0; }
 </style>
 
 <script>
-document.addEventListener("DOMContentLoaded", loadInvitations);
+// --- NOTIFICATIONS ---
+let notifInterval;
 
+async function loadNotifications(silent = false) {
+    const container = document.getElementById("notifications-container");
+    if (!silent) {
+        container.innerHTML = `<p style="color:#94a3b8;font-size:.88rem">Loading alerts…</p>`;
+    }
+    
+    try {
+        const res = await fetch("/api/notifications", { credentials: "include", cache: "no-store" });
+        if (!res.ok) throw new Error("Failed");
+        const notifs = await res.json();
+        
+        if (!notifs.length) {
+            container.innerHTML = `
+                <div class="empty-notif">
+                    <p>You have no recent alerts.</p>
+                </div>`;
+            return;
+        }
+        
+        container.innerHTML = notifs.map(n => buildNotifCard(n)).join("");
+    } catch (e) {
+        if (!silent) container.innerHTML = `<p style="color:#ef4444">Failed to load alerts.</p>`;
+    }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    loadNotifications();
+    loadInvitations();
+    
+    // Auto-refresh notifications every 30 seconds while on this page
+    notifInterval = setInterval(() => loadNotifications(true), 30000);
+});
+
+function buildNotifCard(n) {
+    const readClass = n.is_read ? "" : "unread";
+    const typeIcon = {
+        "overdue": "⚠️",
+        "assigned": "👤",
+        "comment": "💬",
+        "status_change": "🔄"
+    }[n.type] || "🔔";
+    
+    let actions = n.is_read ? '' : `
+        <div class="notif-actions">
+            <button onclick="markRead(${n.id})">Mark Read</button>
+        </div>
+    `;
+
+    return `
+        <div class="notif-card ${readClass}" id="notif-card-${n.id}">
+            <div class="notif-info">
+                <div class="notif-msg">${typeIcon} ${escHtml(n.message)}</div>
+                <div class="notif-meta">
+                    <span>${formatLocalDate(n.created_at)}</span>
+                    ${n.task_id ? `<a href="/tasks/${n.task_id}" style="color:#3b82f6;text-decoration:none;">View Task</a>` : ""}
+                </div>
+            </div>
+            ${actions}
+        </div>
+    `;
+}
+
+async function markRead(id) {
+    try {
+        const res = await fetch(`/api/notifications/${id}/read`, { method: "POST", credentials: "include" });
+        if (res.ok) {
+            const card = document.getElementById(`notif-card-${id}`);
+            if (card) {
+                card.classList.remove("unread");
+                card.querySelector(".notif-actions")?.remove();
+            }
+            refreshSidebarBadge();
+        }
+    } catch (e) { console.error(e); }
+}
+
+async function markAllRead() {
+    try {
+        const res = await fetch("/api/notifications/read-all", { method: "POST", credentials: "include" });
+        if (res.ok) {
+            loadNotifications();
+            refreshSidebarBadge();
+        }
+    } catch (e) { console.error(e); }
+}
+
+
+// --- INVITATIONS ---
 async function loadInvitations() {
     const container = document.getElementById("invitations-container");
-    container.innerHTML = `<p style="color:#94a3b8;font-size:.88rem">Loading…</p>`;
+    container.innerHTML = `<p style="color:#94a3b8;font-size:.88rem">Loading invitations…</p>`;
 
     try {
         const res  = await fetch("/api/invitations", { credentials: "include" });
@@ -126,8 +308,7 @@ async function loadInvitations() {
         if (!invitations.length) {
             container.innerHTML = `
                 <div class="empty-notif">
-                    <div class="empty-icon">🔔</div>
-                    <p>You have no pending invitations.</p>
+                    <p>No pending invitations.</p>
                 </div>`;
             return;
         }
@@ -148,7 +329,7 @@ function buildCard(inv) {
                 <div class="inv-meta">
                     <span>From: <strong>${escHtml(inv.inviter_username)}</strong></span>
                     <span>Role: <span class="inv-role-badge ${roleClass}">${escHtml(inv.role)}</span></span>
-                    <span>Sent: ${escHtml(inv.created_at)}</span>
+                    <span>Sent: ${formatLocalDate(inv.created_at)}</span>
                 </div>
             </div>
             <div class="inv-actions">
@@ -187,7 +368,6 @@ async function respondToInvitation(invId, action) {
         }
 
         if (action === "accept") {
-            // Replace actions with accepted label + Go to task button
             card.classList.add("accepted");
             card.querySelector(".inv-actions").innerHTML = `
                 <span class="inv-status-label status-accepted">✓ Accepted</span>
@@ -205,7 +385,6 @@ async function respondToInvitation(invId, action) {
             showMsg("Invitation declined.", "info");
         }
 
-        // Refresh sidebar badge
         refreshSidebarBadge();
 
     } catch (e) {
@@ -217,7 +396,7 @@ async function respondToInvitation(invId, action) {
 
 async function refreshSidebarBadge() {
     try {
-        const res  = await fetch("/api/invitations/count", { credentials: "include" });
+        const res  = await fetch("/api/notifications/count", { credentials: "include" });
         const data = await res.json();
         const badge = document.getElementById("sidebar-notif-badge");
         if (!badge) return;
@@ -244,10 +423,18 @@ function showMsg(msg, type) {
 
 function escHtml(str) {
     if (!str) return "";
-    return String(str)
-        .replace(/&/g,"&amp;").replace(/</g,"&lt;")
-        .replace(/>/g,"&gt;").replace(/"/g,"&quot;")
-        .replace(/'/g,"&#039;");
+    const div = document.createElement("div");
+    div.innerText = str;
+    return div.innerHTML;
+}
+
+function formatLocalDate(isoString) {
+    if (!isoString) return "";
+    const date = new Date(isoString + "Z"); // Append Z to specify UTC
+    return date.toLocaleString(undefined, {
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+    });
 }
 </script>
 

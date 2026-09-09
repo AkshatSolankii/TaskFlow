@@ -3,7 +3,8 @@
 *.sqlite
 *.sqlite3
 instance/
+
 # Python bytecode and test caches
-_pycache_/
+__pycache__/
 *.py[cod]
 .pytest_cache/

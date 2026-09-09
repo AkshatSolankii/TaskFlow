@@ -23,7 +23,17 @@
     type="datetime-local" 
     id="deadline" 
     class="input-box" 
-    value="{{ task.deadline.replace(' ', 'T')[:16] if task.deadline else '' }}">
+    value="">
+    <script>
+        (function() {
+            const rawDeadline = "{{ task.deadline or '' }}";
+            if (rawDeadline) {
+                const d = new Date(rawDeadline);
+                const pad = n => String(n).padStart(2, '0');
+                document.getElementById('deadline').value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+            }
+        })();
+    </script>
 
     <label for="priority">Priority</label>
     <select id="priority" class="input-box">

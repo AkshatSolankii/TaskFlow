@@ -1,11 +1,11 @@
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import or_
 
 from models import (
     db, Task, Comment, TaskMember,
-    Invitation, ActivityLog, User, can_access_task
+    Invitation, ActivityLog, User, Notification, can_access_task
 )
 
 comments_bp = Blueprint("comments", __name__)
@@ -61,6 +61,19 @@ def post_comment(task_id):
 
     comment = Comment(task_id=task_id, user_id=current_user.id, content=content)
     db.session.add(comment)
+
+    members = TaskMember.query.filter_by(task_id=task_id).all()
+    notify_user_ids = set([m.user_id for m in members])
+    notify_user_ids.add(task.user_id)
+    notify_user_ids.discard(current_user.id)
+
+    for uid in notify_user_ids:
+        db.session.add(Notification(
+            user_id=uid,
+            message=f"{current_user.username} commented on '{task.title}'",
+            type="comment",
+            task_id=task_id
+        ))
 
     log = ActivityLog(action="Commented", entity_type="Task",
                       entity_name=task.title, user_id=current_user.id)
@@ -184,6 +197,14 @@ def send_invitation(task_id):
     )
     db.session.add(invitation)
 
+    if target:
+        db.session.add(Notification(
+            user_id=target.id,
+            message=f"You have been assigned to task '{task.title}' by {current_user.username}",
+            type="assigned",
+            task_id=task_id
+        ))
+
     log = ActivityLog(
         action      = f"Invited {username} as {role}",
         entity_type = "Task",
@@ -218,18 +239,73 @@ def get_my_invitations():
     return jsonify([inv.to_dict() for inv in invitations]), 200
 
 
-# GET /api/invitations/count  — badge count for sidebar
-@comments_bp.route("/invitations/count", methods=["GET"])
+def generate_overdue_notifications(user):
+    now = datetime.now(timezone.utc)
+    # Find incomplete tasks that belong to user or where they are a member
+    base_filter = [Task.status != "completed", Task.deadline.isnot(None)]
+    
+    owner_tasks = Task.query.filter(*base_filter, Task.user_id == user.id).all()
+    
+    member_task_ids = [m.task_id for m in TaskMember.query.filter_by(user_id=user.id).all()]
+    if member_task_ids:
+        member_tasks = Task.query.filter(*base_filter, Task.id.in_(member_task_ids)).all()
+    else:
+        member_tasks = []
+        
+    # Deduplicate by task.id to avoid SQLAlchemy hashing issues
+    tasks_to_check = {}
+    for t in owner_tasks + member_tasks:
+        if t.deadline and t.deadline.strip():
+            tasks_to_check[t.id] = t
+            
+    for task_id, task in tasks_to_check.items():
+        try:
+            # Replace Z with +00:00 for fromisoformat compatibility
+            deadline_str = task.deadline.replace("Z", "+00:00")
+            deadline_dt = datetime.fromisoformat(deadline_str)
+            if deadline_dt.tzinfo is None:
+                deadline_dt = deadline_dt.replace(tzinfo=timezone.utc)
+            if deadline_dt < now:
+                existing = Notification.query.filter_by(
+                    user_id=user.id,
+                    type="overdue",
+                    task_id=task.id
+                ).first()
+                if not existing:
+                    db.session.add(Notification(
+                        user_id=user.id,
+                        message=f"Task '{task.title}' is overdue!",
+                        type="overdue",
+                        task_id=task.id
+                    ))
+        except Exception:
+            pass
+            
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+# GET /api/notifications/count  — badge count for sidebar
+@comments_bp.route("/notifications/count", methods=["GET"])
 @login_required
-def get_invitation_count():
-    count = Invitation.query.filter(
+def get_notification_count():
+    generate_overdue_notifications(current_user)
+
+    invites_count = Invitation.query.filter(
         Invitation.status == "pending",
         or_(
             Invitation.invitee_id == current_user.id,
             Invitation.invitee_username == current_user.username,
         )
     ).count()
-    return jsonify({"count": count}), 200
+
+    notifs_count = Notification.query.filter_by(
+        user_id=current_user.id,
+        is_read=False
+    ).count()
+
+    return jsonify({"count": invites_count + notifs_count}), 200
 
 
 # POST /api/invitations/<id>/accept
@@ -332,3 +408,45 @@ def get_task_invitations(task_id):
         .all()
     )
     return jsonify([inv.to_dict() for inv in invitations]), 200
+
+
+# ═══════════════════════════════════════════════
+# NOTIFICATIONS
+# ═══════════════════════════════════════════════
+
+@comments_bp.route("/notifications", methods=["GET"])
+@login_required
+def get_notifications():
+    generate_overdue_notifications(current_user)
+    
+    notifications = (
+        Notification.query
+        .filter_by(user_id=current_user.id)
+        .order_by(Notification.created_at.desc())
+        .all()
+    )
+    resp = jsonify([n.to_dict() for n in notifications])
+    resp.headers['Cache-Control'] = 'no-store'
+    return resp, 200
+
+
+@comments_bp.route("/notifications/<int:notif_id>/read", methods=["POST"])
+@login_required
+def read_notification(notif_id):
+    notif = Notification.query.filter_by(id=notif_id, user_id=current_user.id).first()
+    if not notif:
+        return jsonify({"error": "Notification not found"}), 404
+        
+    notif.is_read = True
+    db.session.commit()
+    return jsonify({"message": "Marked as read"}), 200
+
+
+@comments_bp.route("/notifications/read-all", methods=["POST"])
+@login_required
+def read_all_notifications():
+    notifications = Notification.query.filter_by(user_id=current_user.id, is_read=False).all()
+    for n in notifications:
+        n.is_read = True
+    db.session.commit()
+    return jsonify({"message": f"Marked {len(notifications)} notifications as read"}), 200
